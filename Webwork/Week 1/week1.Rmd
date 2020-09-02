@@ -1,0 +1,75 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "9/2/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r, echo=FALSE}
+library(MASS)
+data("Boston")
+head(Boston)
+?Boston
+```
+
+
+
+```{r}
+library(FNN)
+
+set.seed(100, sample.kind = "Rounding")
+
+train = sample(1:506, 350, replace = F)
+
+train.x = Boston[train,c("age","rad")]
+valid.x = Boston[-train,c("age","rad")]
+train.y = Boston[train,c("crim")]
+```
+
+```{r}
+  #scale the training dataset with the 2 variables
+train.x.std = scale(train.x)
+  #check the attributes of the scaled dataset. scaled:center will provide the mean
+attr(train.x.std,"scaled:center")
+  #scaled:scale will provide the standard deviation.
+attr(train.x.std,"scaled:scale")
+
+  #we scale the validation set now, using the same mean and std (center and scale) that we found up above. 
+  # we do this to keep things consistent across data sets. 
+valid.x.std = scale(valid.x, center = attr(train.x.std,"scaled:center"), scale = attr(train.x.std,"scaled:scale"))
+
+```
+
+```{r}
+  #run the knn using 25 neighbors
+predictions = knn.reg(train.x.std, valid.x.std, train.y, k=25)
+  #calculate the MSE of the model
+mean((Boston$crim[-train] - predictions$pred)^2)
+
+  #now we are asked to scale the variables again
+Bos.scaled = scale(Boston[,c("age","rad")])
+  #change the col names so they represent the scaled to standard scale
+colnames(Bos.scaled) = c("age.std","rad.std")
+
+  #bind the scaled values with the nonscaled values, and include crime as well
+Boston2 = cbind(Bos.scaled,Boston[,c("age","rad","crim")])
+
+  #write this output to a .csv file. 
+write.csv(Boston2,"C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 1/BostonStd.csv")
+
+```
+
+
+
+
