@@ -44,8 +44,10 @@ These problems are the intellectual property of the instructors and may not be r
 #####################################
 Load the **ISLR** library into R and look at the first few rows of the **Auto** data set.  
 ```{r echo=FALSE}
+  #loading in the data
 library(ISLR)
 data("Auto")
+  #reviewing the first 6 rows
 head(Auto)
 ```
 
@@ -163,9 +165,16 @@ Use 1-nearest neighbor regression (fit on the standardized training data) to pre
 Enter your R code below.  
 <span style="color:green">**Code Answer**: </span>
 ```{r}
-library(FNN)
+  #binding together the vectors into their own dataframe in prep for knn analysis
+train.x.std = data.frame(weight.train.std,year.train.std,train.x$mpg)
+valid.x.std = data.frame(weight.valid.std,year.valid.std,valid.x$mpg)
 
-predictions = knn.reg(,,, k=1)
+library(FNN)
+  #completing the knn regression analysis on MPG using the year and weight variables.
+predictions = knn.reg(train.x.std,valid.x.std,Auto$mpg[train], k=1)
+  #calculating the MSE between actual values of MPG in the validation set vs. predicted values. 
+mean((Auto$mpg[-train] - predictions$pred)^2)
+
 ```
 
 
@@ -175,7 +184,7 @@ predictions = knn.reg(,,, k=1)
 
 What is the MSE for the validation set?  (Round your answer to 2 decimal places.)
 
-Your Answer:  
+Your Answer:  0.04
 <span style="color:green">**Numeric Answer** </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:
 
@@ -190,13 +199,18 @@ Use a for() loop to apply K-nearest neighbors regression to the same training an
 Enter your R code (just the code, not the plot) below.  
 <span style="color:green">**Code Answer**: </span>
 ```{r}
+  #setting up a vector called "K", that is the integer values 1 - 20
 K = seq(1:20)
-MSE.frame = numeric(length(K))
+  #setting up an empty vector that is the length of K. This will eventually store our MSE values. 
+MSE = numeric(length(K))
+
+  #creating a for-loop, that iterates 20 times. Each iteration is passed into the knn algorithms K parameter, and the MSE is calculated and stored in the empty MSE vector. 
 for (i in 1:length(K)){
-  predictions = knn.reg( , , , k=K[i])
-  MSE.frame[i] = mean((Auto$mpg[-train] - predictions$pred)^2)
+  predictions = knn.reg(train.x.std,valid.x.std,Auto$mpg[train], k=K[i])
+  MSE[i] = mean((Auto$mpg[-train] - predictions$pred)^2)
 }
-plot(K,MSE.frame,type="l")
+  #finally, both K and the MSE values are plotted, and we observe k=3 as the low point for MSE. 
+plot(K,MSE,type="l")
 ```
 
 
@@ -207,7 +221,7 @@ In your opinion, which value of k is the best choice?  Why?
 
 <span style="color:green">**Text Answer**: </span>
 
-I believe that K is the best selection for K because it produces the lowest MSE value. 
+I believe that 3 is the best selection for K because it produces the lowest MSE value. 
 
 
 
