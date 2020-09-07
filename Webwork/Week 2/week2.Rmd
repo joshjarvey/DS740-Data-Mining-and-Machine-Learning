@@ -29,15 +29,14 @@ train.x = x.std[c("age.std", "rad.std")]
 train.y = x.std$crim
 
   #use KNN regression using the x's, to predict the y's.
-predictions = knn.reg(train.x,NULL,train.y,k=25)
+  #while we dont have a "test" set that we need to explicitly state, using NULL in the 2nd parameter in this KNN line
+  #actually preforms cross-validation! Wow! Instead, when we truly dont want any train/test split, we just put in
+  #the train.x again in the test parameter.
+predictions = knn.reg(train.x,train.x,train.y,k=25)
 
   #calculate MSE by taking actual - predictions, square it, and average it altogether.
 mean((train.y - predictions$pred)^2)
 
-
-train.y
-
-predictions$pred
 
 ```
 
@@ -45,8 +44,39 @@ predictions$pred
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+  #setting up a vector to collect the squared errors
+error = numeric(nrow(boston))
+
+for (i in 1:nrow(boston)){
+    #pulling the 1st row for the first iteration for the test set
+  test = x.std[i,1:2]
+    #pulling the 1st crime rate for the first iteration for the test set
+  test.y = x.std$crim[i]
+    
+  
+    #pulling the remaining fields for the training set 
+  train = x.std[-i,1:2]
+    #pulling the remaining crime rates for the training set
+  train.y = x.std$crim[-i]
+  
+  
+  
+    #using the training x's, and the training y's to predict the test set
+  predictions = knn.reg(train,test,train.y, k=25)
+  
+    #for each iteration, subtract the the actual y value from the predicted y value to understand the error. Square it.
+    #store this value into the error vector, so it can be averaged to determine the CV score
+  error[i] = (test.y - predictions$pred)^2
+}
+  
+  #average the prediction errors across the enter error vector to determine the CV_n MSE score. 
+mean(error)
+
+
+  
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
