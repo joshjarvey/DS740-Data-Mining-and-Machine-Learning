@@ -1,0 +1,125 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "9/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+
+  #loading and recreating the the boston dataset with standardized age and rad variables
+library(MASS)
+x = cbind(Boston$age, Boston$rad)
+x.std = scale(x)
+BostonStd = cbind(x, x.std, Boston$crim)
+colnames(BostonStd) = c("age","rad","age.std","rad.std","crim")
+
+
+  #pulling the seperated x's (standardized) and y's into their own variables
+x.std = cbind(BostonStd[,3], BostonStd[,4])
+y = BostonStd[,5]
+
+  
+  #find the number of observations in the data set - 506
+n=dim(BostonStd)[1]
+  #create a separate vector to store predictions
+LOOCVpredictions = rep(NA,n)
+
+  #iterate through each observation 1 at a time.
+for (fold in 1:n) {
+    
+    #setting up the training set's x's by pulling everything except the current iteration's observations
+  train.x = x.std[-fold,]
+    #scale the x's from the training set - again - because one observation was removed so the values will be different.
+  train.x.std = scale(train.x)
+    #pull out the training y's from the crim vector
+  train.y = y[-fold]
+  
+  
+    #now we build the test dataset. First we pull only the the x's based on the current iteration (the LOOV)
+  valid.x = matrix(x.std[fold,],ncol=2)
+  
+    #we need to rescale the x's for this test observation - again - i dont understand why....and you need to use the mean and standard dev from the training set's rescaled x's)
+  valid.x.std = scale(valid.x, 
+    center = attr(train.x.std, "scaled:center"), 
+    scale = attr(train.x.std, "scaled:scale"))
+  
+    #now with the rescaled training x's, and the normal training y's, we can predict the test y by using the rescaled test x's (that are based on the rescaled train x's mean and standard dev).
+  predictions = knn.reg(train.x.std, valid.x.std, train.y, k = 25)
+  
+    #store the predicted value into the vector created 
+  LOOCVpredictions[fold] = predictions$pred
+}
+  #find the error by taking the actual y - predicted y, square it, and average to find MSE)
+mean( (y - LOOCVpredictions)^2 )
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+
+set.seed(100, sample.kind = "Rounding")
+m=10
+
+  #"1:m" = create a vector of 1 to 10
+      #note: n = the number of rows in the boston dataset.
+  #"floor(n/m)" = replicate this vector 5 times (506/10 = 5.06; take floor = 5).
+  #"1:(n %% m)" = now we need the remainder of the values, which is 6. 506 mod 10 = remainder 6). so create a vector 1:6.
+  #"c(m groups, remainder)" = basically concatenate the m equal groups, and the remainder.  
+groups = c(rep(1:m,floor(n/m)),1:(n %% m))
+
+  #now, using sample, take a random sample, n times (506 times). Pull that sample from the new groups vector, which has all the numbers 1:10 replicated many times. We can use this newly "randomly shuffled" vector to build our CV groups.
+cvgroups = sample(groups,n)
+
+
+
+
+
+  #create an empty vector with the length of the sample sizes - 506
+mfoldCVpredictions = rep(NA,n)
+
+  #now, for each fold, i.e. 1 through 10
+for (fold in 1:m) {
+    #building the training set of x's and y's
+    
+    #to get the training x's, you need to pull the standardized versions of age and rad, for all values except for the current for-loop iteration, which is the current fold.
+  train.x = x.std[cvgroups != fold,]
+    #re-scale the training x's, because theres now different data within here.
+  train.x.std = scale(train.x)
+    #to get the training y's, do the same thing as above with the training x's, pull everything except the current iteration's fold. 
+  train.y = y[cvgroups != fold]
+  
+  
+    #building the test set of x's and y's
+    #basically this is the same thing as above, pull the x's where its the current fold.
+  valid.x = x.std[cvgroups == fold,]
+    #re-standardize based on the training's scaled mean and standard deviation
+  valid.x.std = scale(valid.x, 
+    center = attr(train.x.std, "scaled:center"), 
+    scale = attr(train.x.std, "scaled:scale"))
+  
+    #using knn regression, predict the y's using the test's re-scaled x's. Use the rescaled x's from the training set, and the normal training y's. 
+  predictions = knn.reg(train.x.std, valid.x.std, train.y, k = 25)
+  
+    #because the knn algorithm returns a vector of predictions, we need to store these into the mFoldCVpredictions vector. We find the right indexes by referencing the cvgroups vector (which is the same shape as mfoldCVpredictions) and where the value matches in cvgroups to the current fold (i.e. fold 1 is in index 2,34,45,299,etc, so this is where these are placed. These have to be placed in this particular order, so they match the original y values and an error can be calculated). 
+  mfoldCVpredictions[cvgroups == fold] = predictions$pred
+}
+  #calculate MSE
+mean( (y - mfoldCVpredictions)^2 )
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

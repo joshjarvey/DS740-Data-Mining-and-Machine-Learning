@@ -48,7 +48,12 @@ Load the **ISLR** library into R and look at the first few rows of the **Auto** 
 library(ISLR)
 data("Auto")
   #reviewing the first 6 rows
-head(Auto)
+#head(Auto)
+
+summary(Auto)
+
+sd(Auto$weight)
+sd(Auto$year)
 ```
 
 What data mining strategy would you use to investigate the following questions?  [Note that the orderings for the answer choices on D2L might differ from those shown below.]
@@ -80,7 +85,7 @@ We would like to use K-nearest neighbors to predict the gas mileage (MPG) of car
 
 <span style="color:green">**Text Answer**: </span>
  
-MPG are all typically on a scale of tens, whereas the weight of a vehicle is on a scale of thousands. Because KNN takes Euclidean distance, values of weight will always skew the results, almost making mpg insignificant in comparison. Standardizing these values puts them on an "equal playing field" so to speak.
+The Year variable is in the 10's scale and has a standard deviation of ~3.68, whereas the weight variable is in the 1000's scale and has a standard deviation of ~849.40. These are drastically different in range, yet the KNN algorithm will treat these ranges the same since it uses the elcuidian distance. To get them on an equal playing field, we need to standardize the variables so they both have a mean 0 and std of 1, and can be compared for their distances. 
 
 #####################################
 #### Question 3: **<span style="color:Crimson">(1 point)</span>**
@@ -142,13 +147,13 @@ valid.x = Auto[-train,]
 weight.train.std = scale(train.x$weight)
 year.train.std = scale(train.x$year)
 
-#scale the weight variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the test set.
+#scale the weight variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the train set.
 weight.valid.std = scale(valid.x$weight, 
                          center = attr(weight.train.std,"scaled:center"), 
                          scale = attr(weight.train.std,"scaled:scale")
                          )
  
-#scale the year variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the test set.
+#scale the year variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the train set.
 year.valid.std = scale(valid.x$year, 
                          center = attr(year.train.std,"scaled:center"), 
                          scale = attr(year.train.std,"scaled:scale")
@@ -166,8 +171,8 @@ Enter your R code below.
 <span style="color:green">**Code Answer**: </span>
 ```{r}
   #binding together the vectors into their own dataframe in prep for knn analysis
-train.x.std = data.frame(weight.train.std,year.train.std,train.x$mpg)
-valid.x.std = data.frame(weight.valid.std,year.valid.std,valid.x$mpg)
+train.x.std = data.frame(weight.train.std,year.train.std)
+valid.x.std = data.frame(weight.valid.std,year.valid.std)
 
 library(FNN)
   #completing the knn regression analysis on MPG using the year and weight variables.
@@ -209,7 +214,7 @@ for (i in 1:length(K)){
   predictions = knn.reg(train.x.std,valid.x.std,Auto$mpg[train], k=K[i])
   MSE[i] = mean((Auto$mpg[-train] - predictions$pred)^2)
 }
-  #finally, both K and the MSE values are plotted, and we observe k=3 as the low point for MSE. 
+  #finally, both K and the MSE values are plotted, and we observe k=13 as the low point for MSE. 
 plot(K,MSE,type="l")
 ```
 
@@ -221,7 +226,7 @@ In your opinion, which value of k is the best choice?  Why?
 
 <span style="color:green">**Text Answer**: </span>
 
-I believe that 3 is the best selection for K because it produces the lowest MSE value. 
+I believe that 13 is the best selection for K because it produces the lowest MSE value. 
 
 
 
@@ -255,7 +260,7 @@ Enter your R code below.
 <span style="color:green">**Code Answer**: </span>
 ```{r}
 library(readr)
-  #reading in the census data. readr takes care of the extra spacing
+  #reading in the census data. readr appears to have taken care of the extra spacing
 income = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 1/Census_income.csv")
   #create a new column called Sex01.
 income["Sex01"] = as.factor(ifelse(income$Sex == "Male",0,1))
@@ -279,23 +284,20 @@ Use the same means and standard deviations (from the training data) to standardi
 Enter your R code below.  
 <span style="color:green">**Code Answer**: </span>
 ```{r echo=FALSE}
-  #seeting seed for reproducability
+  #setting seed for reproducability
 set.seed(1, sample.kind = "Rounding")
 
   #create a list of indices for training - 20000
 train = sample(1:32561, 20000, replace = F)
-
-
-  
   #create a new dataframe pulling training data using the training indices.
 train.x = income[train,]
+
+
   #standardize the educYears and Age variables
 Educ.train.std = scale(train.x$EducYears)
 Age.train.std = scale(train.x$Age)
   #combine these standardized values from the training set, with the Sex01 values from training as well
 train.x.std = data.frame(Educ.train.std,Age.train.std,train.x$Sex01)
-
-
 
 
 
@@ -330,7 +332,8 @@ Use 25-nearest neighbor classification (fit on the training set) to predict whet
 Find the confusion matrix.  You should be able to produce a matrix table with two rows and two columns, similar to the one below.  Use the spaces below the table to indicate what appears in each part of your matrix that corresponds to the letters **[A]** through **[D]**. For example, if the matrix you create shows 5432 in the cell that corresponds to **[A]** in the matrix below, you would enter "5432" in the space next to "[A]".
 
 ```{r echo=FALSE}
-  #perform the knn algorithm on the standardized training and validation data (using income from training data only)
+set.seed(1, sample.kind = "Rounding") 
+ #perform the knn algorithm on the standardized training and validation data (using income from training data only)
 predictions = class::knn(train.x.std,valid.x.std,income$Income[train], k=25)
 
   #create a confusion matrix using the predictions, and how it fared against the validation income data.
@@ -349,9 +352,9 @@ Classified > 50K	| **[C]** | **[D]** |
 <span style="color:green">**Numeric Answer** </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 [A] =  8839
-[B] =  690
-[C] =  1806
-[D] =  1226
+[B] =  1808
+[C] =  691
+[D] =  1224
 
  
 
@@ -364,7 +367,7 @@ What is the overall error rate on the validation set? Enter your answer as a dec
 #Overall error rate: first add up the numbers that the model got wrong. Then add up all the values
 #errors go into the numerator, and sum of all values goes into the denominator.
 
-(690+1806)/ (8839+690+1806+1226)
+(691+1808)/ (8839+691+1808+1224)
 ```
 
 Your Answer:  
@@ -381,7 +384,7 @@ What proportion of people making > $50,000 were misclassified? Enter your answer
 #misclassification of >50k incomes: the number of incorrect classifications goes into the numerator
 #the sum of all >50k incomes goes into the denominator. 
 
-1806/(1806+1226)
+1808/(1808+1224)
 
 ```
 

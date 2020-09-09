@@ -45,25 +45,36 @@ mean((train.y - predictions$pred)^2)
 You can also embed plots, for example:
 
 ```{r}
+  #read in data.
+library(readr)
+library(FNN)
+boston = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 1/BostonStd.csv")
+boston = boston[,2:6]
+
+
+  #pull 2 predictor variables, and 1 response variable from larger data set - these are the standardized x's
+x.std = boston[,c("age.std", "rad.std", "crim")]
+
+
   #setting up a vector to collect the squared errors
 error = numeric(nrow(boston))
 
 for (i in 1:nrow(boston)){
-    #pulling the 1st row for the first iteration for the test set
-  test = x.std[i,1:2]
-    #pulling the 1st crime rate for the first iteration for the test set
-  test.y = x.std$crim[i]
-    
-  
+
     #pulling the remaining fields for the training set 
-  train = x.std[-i,1:2]
+  train.std = scale(boston[-i,3:4])
+  
     #pulling the remaining crime rates for the training set
-  train.y = x.std$crim[-i]
+  train.y = boston$crim[-i]
   
-  
+    #pulling the 1st row for the first iteration for the test set. These are my x's for the test set
+    #i need to rescale the test x's based on the mean and stdev values from the scaled training x's set.
+  test.std = scale(boston[i,3:4], center = attr(train.std, "scaled:center"), scale = attr(train.std, "scaled:scale"))
+    #pulling the 1st crime rate for the first iteration for the test y.
+  test.y = boston$crim[i]
   
     #using the training x's, and the training y's to predict the test set
-  predictions = knn.reg(train,test,train.y, k=25)
+  predictions = knn.reg(train.std,test.std,train.y, k=25)
   
     #for each iteration, subtract the the actual y value from the predicted y value to understand the error. Square it.
     #store this value into the error vector, so it can be averaged to determine the CV score
@@ -73,10 +84,83 @@ for (i in 1:nrow(boston)){
   #average the prediction errors across the enter error vector to determine the CV_n MSE score. 
 mean(error)
 
-
   
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+
+
+```{r}
+
+
+  #setting up a vector to collect the squared errors
+error = numeric(nrow(boston))
+
+for (i in 1:nrow(boston)){
+    #pulling the 1st row for the first iteration for the test set
+  test.x = boston[i,3:4]
+    #pulling the 1st crime rate for the first iteration for the test set
+  test.y = boston$crim[i]
+
+  
+    #pulling the remaining fields for the training set 
+  train.x = scale(boston[-i,3:4])
+  
+    #pulling the remaining crime rates for the training set
+  train.y = boston$crim[-i]
+  
+  
+    #using the training x's, and the training y's to predict the test set
+  predictions = knn.reg(train.x,test.x,train.y, k=25)
+  
+    #for each iteration, subtract the the actual y value from the predicted y value to understand the error. Square it.
+    #store this value into the error vector, so it can be averaged to determine the CV score
+  error[i] = (test.y - predictions$pred)^2
+  
+}
+  
+  #average the prediction errors across the enter error vector to determine the CV_n MSE score. 
+mean(error)
+
+  
+```
+
+```{r}
+library(readr)
+
+  #read in the boston dataset
+boston = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 1/BostonStd.csv")
+boston = boston[,2:6]
+
+  #taking a subset of the data: age, rad, and the log of crim variable as the response.
+bostonTrans = data.frame(boston[,3:4],log(boston$crim))
+
+  #fit the linear regression model of crim as a function of age and rad.
+model = lm(log.boston.crim. ~ age + rad, data = bostonTrans)
+
+  #check summary and get SE of the coefficients
+summary(model)
+
+
+beta.fn <- function(inputdata, index){
+    #first we fit the regression model of log crim vs. age and rad
+    #we use the subset command to specify the indicies to use in the bostonTrans data
+    #finally, we extract the coefficients of the model using the coef(); this is whats returned 
+  return(coef(lm(log.boston.crim. ~ age + rad, data = inputdata, subset = index)))
+}
+
+  #pull in the bootstrap library, and set seed to 100.
+library(boot)
+set.seed(100, sample.kind = "Rounding")
+
+  #run the bootstrap function using the bostonTrans data, our regression fitting function that extracts coefficients, and do this 5000 times.
+
+  #note: the bootstrap function here randomly resamples 5000 datasets of size 506 observations from the bostonTrans dataset. Each "strap" is passed into the beta.fn function and the coefficient is calculated. The 5000 coefficients are then used to land on the final value for the SE's of these coefficients.
+boot(bostonTrans,beta.fn,R=5000)
+
+```
 
 
