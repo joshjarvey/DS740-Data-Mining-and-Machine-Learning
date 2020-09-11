@@ -84,6 +84,7 @@ summary(model)
 5
 
 
+ZERO TERMS
 *** 
 
 
@@ -108,34 +109,34 @@ Enter your R code below.</span>
 ```{r, echo=TRUE}
 # Question 3
 
-  #using the code provided, create a vector with the sequence 1:5, 6x times. There is 1 remaining observation above 30, so combine "1" at the end. This appears to be setting up 5 folds for CV (one of the groups only has 1 obs)
+#using the code provided, create a vector with the sequence 1:5, 6x times. There is 1 remaining observation above 30, so combine "1" at the end. This appears to be setting up 5 folds for CV (because each of the 31 observation's will get labeled 1, 2, 3, 4, or 5)
 groups = c(rep(1:5,6),1)
   #count the sample size.
 n = nrow(trees)
- #now, using sample, take a random sample, n times (31 times). Pull that sample from the new groups vector, which has all the numbers 1:5 replicated many times. We can use this newly "randomly shuffled" vector to build our CV groups.
+ #now, using sample, take a random sample, n times (31 times). Pull that sample from the "groups" vector, which has all the numbers 1:5 replicated many times. We can use this newly "randomly shuffled" vector to build our train/test groups.
 cvgroups = sample(groups,n)
 
 
 # Questions 4-5
 
-k = 5
+  #creating an empty vector to store predicted values. This is just a vector of 31 zereos.
+allpredictedCV = rep(0,n)
 
-  #create an empty vector with the length of the sample sizes - 31
-mfoldCVpredictions = rep(NA,n)
-
-allPredictedCV = rep(0,n)
-
-  #now, for each fold, i.e. 1 through 5
-for (i in 1:k) {
-    #building the training set of x's and y's
- 
-  groupi = (cvgroups == i)
-  lmfitCV = lm(Volume ~ Girth + Height + GirthHeight + Girth2 + Girth2Height, data = trees, subset = !groupi)
-  allPredictedCV[groupi] = predict(lmfitCV,trees[groupi,])
-   
+  #there are "5 folds", therefore we loop 5 times.
+for (i in 1:5){
+    #create a vector of True/False values, where TRUE values will be the hold out set for testing the model via prediction.
+    #we'll go through the entire randomly created vector called "cvgroups", and where the element matches the current loop's 
+    #iteration, this will be considered a "test" observation.
+  test = (cvgroups == i)
+    #next we will fit the model onto the tree's dataset, but we want to keep out the "test" dataset which was determined in the 
+    #previous step. We use "subset =", and can cleverly use the inverse of the true/false vector via !test.
+  fit = lm(formula = Volume~Girth+Height+GirthHeight+Girth2+Girth2Height,data=trees,subset=!test)
+    #now that we've fit the model using the "training" data, we can use the model to predict the "test" data.
+    #there are about 6 observations (for the most part) that are being predicted here in each iteration. 
+    #For the returned predicted values, we want to store them the "allpredictedCV" vector, and do it in place of that iteration
+  allpredictedCV[test] = predict.lm(fit,trees[test,])
 }
-  
-  
+
 
 
 # Question 6
@@ -146,6 +147,7 @@ for (i in 1:k) {
 ### <span style="color:DarkViolet">Question 4</span> **<span style="color:Crimson">(1 point)</span>**
 <span style="color:DarkViolet">Use the 5-fold CV method to assess the model fit. Provide the predicted y-value for the **first** observation: </span>
 
+9.25
 
 <span style="color:green">**Numeric Answer** </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:
@@ -154,6 +156,7 @@ for (i in 1:k) {
 ### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(1 point)</span>**
 <span style="color:DarkViolet">Use the 5-fold CV method to assess the model fit. Provide the predicted y-value for the **second** observation: </span>
 
+10.06
 
 <span style="color:green">**Numeric Answer** </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:
@@ -168,19 +171,37 @@ for (i in 1:k) {
 
 ```{r}
 # Question 6
-
+sum((allpredictedCV-trees$Volume)^2)/n
 ```
 
 <span style="color:green">**Numeric Answer** </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:
 
-
+8.1536
 
 ### <span style="color:DarkViolet">Question 7</span> **<span style="color:Crimson">(3 points)</span>**
 <span style="color:DarkViolet">Enter your R code for computing the $CV_{(5)}$ measure below.</span>
 
 <span style="color:green">**Code Answer**: </span>
 ```{r echo=TRUE}
+
+  #creating an empty vector to store predicted values. This is just a vector of 31 zereos.
+allpredictedCV = rep(0,n)
+
+  #there are "5 folds", therefore we loop 5 times.
+for (i in 1:5){
+    #create a vector of True/False values, where TRUE values will be the hold out set for testing the model via prediction.
+    #we'll go through the entire randomly created vector called "cvgroups", and where the element matches the current loop's 
+    #iteration, this will be considered a "test" observation.
+  test = (cvgroups == i)
+    #next we will fit the model onto the tree's dataset, but we want to keep out the "test" dataset which was determined in the 
+    #previous step. We use "subset =", and can cleverly use the inverse of the true/false vector via !test.
+  fit = lm(formula = Volume~Girth+Height+GirthHeight+Girth2+Girth2Height,data=trees,subset=!test)
+    #now that we've fit the model using the "training" data, we can use the model to predict the "test" data.
+    #there are about 6 observations (for the most part) that are being predicted here in each iteration. 
+    #For the returned predicted values, we want to store them the "allpredictedCV" vector, and do it in place of that iteration
+  allpredictedCV[test] = predict.lm(fit,trees[test,])
+}
 ```
 
 
@@ -308,8 +329,8 @@ $Volume = \beta_0+\beta_5\cdot Girth^2\cdot Height$
 
 <span style="color:green">**Numeric Answer** </span>  
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
-For Model 1, $CV_{(31)}$ =  
-For Model 2, $CV_{(31)}$ =  
+For Model 1, $CV_{(31)}$ =  8.96
+For Model 2, $CV_{(31)}$ =  18.16
 (use code space in next question)  
 
 ### <span style="color:DarkViolet">Question 18</span> **<span style="color:Crimson">(4 points)</span>**:
@@ -318,12 +339,66 @@ For Model 2, $CV_{(31)}$ =
 
 <span style="color:green">**Possible Answer**: </span>
 ```{r echo=TRUE}
-#Q18
-
 #Q16
+
+library(readr)
+trees = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 2/trees.csv")
+
+Model1 = (Volume ~ Girth + Height + GirthHeight + Girth2 + Girth2Height)
+Model2 = (Volume ~ Girth + Height)
+Model3 = (Volume ~ Girth + Height + GirthHeight)
+Model4 = (Volume ~ Girth + Height + Girth2 + Girth2Height)
+Model5 = (Volume ~ Girth2 + Girth2Height)
+Model6 = (Volume ~ Girth2Height)
+
+allModels = list(Model1,Model2,Model3,Model4,Model5,Model6)	
+
+n=31
+
+
+#applying 10-fold cross-validation for model selection
+k = 31 
+
+cvgroups = 1:31
+
+allmodelMSE = rep(NA,6)  #place-holder for results
+allmodelMSEadj = rep(NA,6)  #place-holder for results
+allmodelCV = rep(NA,6) #place-holder for results
+	#fits for each model m, including predictors 1:m in order of forward step regression selection
+for (m in 1:6) {
+  mPredfit = lm(formula = allModels[[m]],data=trees)
+  allmodelMSE[m] = sum((mPredfit$fitted.values-trees$Volume)^2)/n
+  allmodelMSEadj[m] = sum((mPredfit$fitted.values-trees$Volume)^2)/(n-1-m)
+
+  #prediction via cross-validation
+  allpredictedCV = rep(0,n)
+  for (i in 1:k)  {
+    groupi = (cvgroups == i)
+	  lmfitCV = lm(formula = allModels[[m]],data=trees,subset=!groupi)
+    allpredictedCV[groupi] = predict.lm(lmfitCV,trees[groupi,])
+  }
+  allmodelCV[m] = sum((allpredictedCV-trees$Volume)^2)/n
+}
+
+
+
 
 #Q17
 
+#Q18
+
+6.649682
+
+
+
+
+#comparison
+plot(1:6,allmodelMSE,ylim = c(1,10),xlab="model number",ylab="")
+	# MSE for each model fit plotted against number of predictors ("complexity" of model)
+points(1:6,allmodelMSEadj,col="blue",pch=8)
+	# MSE, adjusted for the number of predictors, plotted against number of predictors
+points(1:6,allmodelCV,col="red",pch=20)
+	# CV(10), adjusted for the number of predictors, plotted against number of predictors
 ```
 
 
@@ -342,11 +417,14 @@ Model 6
 
 ***
 
+MODEL 6 since it has the lowest CV MSE value 
+
 
 ### <span style="color:DarkViolet">Question 20</span> **<span style="color:Crimson">(1 point)</span>**:
 
 <span style="color:DarkViolet">Explain why you chose the model selected in the previous question. </span>
 
+Model 6 has the lowest CV error value.
 
 <span style="color:green">**Text Answer**: </span>
 
@@ -356,8 +434,47 @@ Model 6
 
 ```{r}
 
-
 #Q21
+
+library(readr)
+trees = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 2/trees.csv")
+set.seed(2, sample.kind = "Rounding")
+Model1 = (Volume ~ Girth + Height + GirthHeight + Girth2 + Girth2Height)
+Model2 = (Volume ~ Girth + Height)
+Model3 = (Volume ~ Girth + Height + GirthHeight)
+Model4 = (Volume ~ Girth + Height + Girth2 + Girth2Height)
+Model5 = (Volume ~ Girth2 + Girth2Height)
+Model6 = (Volume ~ Girth2Height)
+
+allModels = list(Model1,Model2,Model3,Model4,Model5,Model6)	
+
+n = nrow(trees)
+k=5
+groups = c(rep(1:5,6),1)
+  #count the sample size.
+
+ #now, using sample, take a random sample, n times (31 times). Pull that sample from the new groups vector, which has all the numbers 1:5 replicated many times. We can use this newly "randomly shuffled" vector to build our CV groups.
+cvgroups = sample(groups,n)
+
+allmodelMSE = rep(NA,6)  #place-holder for results
+allmodelMSEadj = rep(NA,6)  #place-holder for results
+allmodelCV = rep(NA,6) #place-holder for results
+
+	#fits for each model m, including predictors 1:m in order of forward step regression selection
+for (m in 1:6) {
+  mPredfit = lm(formula = allModels[[m]],data=trees)
+  allmodelMSE[m] = sum((mPredfit$fitted.values-trees$Volume)^2)/n
+  allmodelMSEadj[m] = sum((mPredfit$fitted.values-trees$Volume)^2)/(n-1-m)
+
+  #prediction via cross-validation
+  allpredictedCV = rep(0,n)
+  for (i in 1:k)  {
+    groupi = (cvgroups == i)
+	  lmfitCV = lm(formula = allModels[[m]],data=trees,subset=!groupi)
+    allpredictedCV[groupi] = predict.lm(lmfitCV,trees[groupi,])
+  }
+  allmodelCV[m] = sum((allpredictedCV-trees$Volume)^2)/n
+}
 
 #Q22
 
@@ -365,8 +482,8 @@ Model 6
 
 <span style="color:green">**Numeric Answer** </span>  
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
-For Model 1, $CV_{(5)}$ =  
-For Model 2, $CV_{(5)}$ =  
+For Model 1, $CV_{(5)}$ =  19.741684
+For Model 2, $CV_{(5)}$ =  19.973142
 (use code space above)  
 
 
@@ -384,10 +501,14 @@ Model 4,
 Model 5, or  
 Model 6  
 
+MODEL 6 is the choice.
 
 ### <span style="color:DarkViolet">Question 24</span> **<span style="color:Crimson">(2 points)</span>**:
 
 <span style="color:DarkViolet">Considering the form of the model that was selected by cross-validation, why does this model make sense from a practical standpoint? </span>
+
+
+A tree's height goes in the y dimension (i.e. it moves vertically, only one measurement), whereas the girth is in the x AND z axis in 3-dimensional space (its basically the circumference). These two are explicitly linked because the way a tree grows.
 
 <span style="color:green">**Text Answer**: </span>
 
@@ -416,6 +537,7 @@ $\texttt{groups = c(rep(1:10,39),1,2)}$
 
 ```{r, echo=TRUE}
 set.seed(2, sample.kind = "Rounding")
+library(FNN)
 ```
 and use sample() to divide the data into ten sets.  Then use 10-fold cross-validation method to calculate $CV_{(10)}$  for 1-nearest neighbor regression. Remember to re-standardize each training set inside the cross-validation. Report the value.   </span>
 

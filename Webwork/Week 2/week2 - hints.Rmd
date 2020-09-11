@@ -19,6 +19,7 @@ When you click the **Knit** button a document will be generated that includes bo
 
   #loading and recreating the the boston dataset with standardized age and rad variables
 library(MASS)
+library(FNN)
 x = cbind(Boston$age, Boston$rad)
 x.std = scale(x)
 BostonStd = cbind(x, x.std, Boston$crim)
@@ -70,9 +71,9 @@ You can also embed plots, for example:
 
 ```{r}
 
-set.seed(100, sample.kind = "Rounding")
 m=10
-
+  #find the number of observations in the data set - 506
+n=dim(BostonStd)[1]
   #"1:m" = create a vector of 1 to 10
       #note: n = the number of rows in the boston dataset.
   #"floor(n/m)" = replicate this vector 5 times (506/10 = 5.06; take floor = 5).
