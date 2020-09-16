@@ -423,10 +423,10 @@ Model 6 has the lowest CV error value.
 #Q21
 
 
-  #create an empty vector to store CV31 results of each model
+  #create an empty vector to store CV5 results of each model
 allmodelCV = rep(NA,6)
 
-	#Loop through the calculation of CV31 calculation 6x times, one for each model.
+	#Loop through the calculation of CV5 calculation 6x times, one for each model.
   #m will denote the current model from the allModels list object.
 for (m in 1:6) {
 
@@ -532,6 +532,59 @@ and use sample() to divide the data into ten sets.  Then use 10-fold cross-valid
 library(ISLR)
 data("Auto")
 
+groups = c(rep(1:10,39),1,2)
+
+  #count the sample size.
+n = nrow(Auto)
+
+ #now, using sample, take a random sample, n times (392 times). Pull that sample from the "groups" vector, which has all the numbers 1:10 replicated many times. We can use this newly "randomly shuffled" vector to build our train/test groups.
+cvgroups = sample(groups,n)
+
+
+  #creating an empty vector to store predicted values. This is just a vector of 392 zereos.
+predictedCV = rep(0,n)
+
+    #there are "10 folds", therefore we loop 10 times.
+for (i in 1:10){
+      #create a vector of True/False values, where TRUE values will be the hold out set for testing the model via prediction.
+      #we'll go through the entire randomly created vector called "cvgroups", and where the element matches the current loop's 
+      #iteration, this will be considered a "test" observation.
+  test = (cvgroups == i)
+    
+    
+        #create 2 new dataframes pulling training data using the "non-test" values.
+  train.x = Auto[!test,]
+    #and pulling the validation data using JUST the test values. 
+  valid.x = Auto[test,]
+  
+    #scale both the weight and year from the training dataset. Stored into their own variables.
+  weight.train.std = scale(train.x$weight)
+  year.train.std = scale(train.x$year)
+  
+  #scale the weight variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the train set.
+  weight.valid.std = scale(valid.x$weight, 
+                           center = attr(weight.train.std,"scaled:center"), 
+                           scale = attr(weight.train.std,"scaled:scale")
+                           )
+   
+  #scale the year variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale from the train set.
+  year.valid.std = scale(valid.x$year, 
+                           center = attr(year.train.std,"scaled:center"), 
+                           scale = attr(year.train.std,"scaled:scale")
+                           )
+  
+    #now that we have appropriately scaled variables, create a dataframe to put the x's together for both train and test sets.
+  train.x.std = data.frame(weight.train.std,year.train.std)
+  valid.x.std = data.frame(weight.valid.std,year.valid.std)
+  
+    #completing the knn regression analysis on MPG using the standardized year and weight variables. k = 1
+    #store the predictions in the empty vector of zeroes, at the current iteration's spot.
+    #repeat this process for each iteration of the 10 folds. 
+  predictedCV[test] = knn.reg(train.x.std,valid.x.std,Auto$mpg[!test], k=1)$pred
+}
+      #finally, calculating the CV10 MSE between actual values of MPG in the predicted set vs. actual mpg values. 
+sum((predictedCV-Auto$mpg)^2)/n  
+
 ```
 
 
@@ -548,6 +601,9 @@ $CV_{(10)} \approx MSE$
 
 ***
 
+CV10 will larger because raw MSE should perform perfectly if you use the same data you trained with, to test with. It already knows what those data points are.
+
+
 ### <span style="color:DarkViolet">Question 28</span> **<span style="color:Crimson">(3 points)</span>**:
 
 <span style="color:DarkViolet">Consider models 1-30 as the k-nearest neighbors regression for values of k from 1 to 30. Using the same split of the data into ten sets as you performed in the Model assessment section, use 10-fold cross-validation method to calculate CV(10) for each of Models 1-30; remember to re-standardize each training set inside the cross-validation. Make a plot of the CV(10) as a function of k.
@@ -556,6 +612,64 @@ Upload your plot to the Quiz question.  </span>
 <span style="color:green">**Plot upload: </span>
 ```{r echo=FALSE}
 
+  #setting up my k values
+k = seq(1:30)
+  #setting up an empty vector which will store all the CV values for each of the 30 models. 
+allCV = numeric(length(k))
+
+  #for each value of k, 1-30, iterate and perform CV10 using the knn.reg() model. 
+for (j in 1:length(k)){
+
+    #creating an empty vector to store predicted values. This is just a vector of 392 zereos.
+  predictedCV = rep(0,n)
+  
+      #there are "10 folds", therefore we loop 10 times.
+  for (i in 1:10){
+      #create a vector of True/False values, where TRUE values will be the hold out set for testing the model via prediction.
+      #we'll go through the entire randomly created vector called "cvgroups", and where the element matches the current loop's 
+      #iteration, this will be considered a "test" observation.
+    test = (cvgroups == i)
+      
+      
+      #create 2 new dataframes pulling training data using the "non-test" values.
+    train.x = Auto[!test,]
+      #and pulling the validation data using JUST the test values. 
+    valid.x = Auto[test,]
+    
+      #scale both the weight and year from the training dataset. Stored into their own variables.
+    weight.train.std = scale(train.x$weight)
+    year.train.std = scale(train.x$year)
+    
+      #scale the weight variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale 
+      #from the train set.
+    weight.valid.std = scale(valid.x$weight, 
+                             center = attr(weight.train.std,"scaled:center"), 
+                             scale = attr(weight.train.std,"scaled:scale")
+                             )
+     
+      #scale the year variable in the VALID dataset this time, but also make sure to use the same parameters for center/scale 
+      #from the train set.
+    year.valid.std = scale(valid.x$year, 
+                             center = attr(year.train.std,"scaled:center"), 
+                             scale = attr(year.train.std,"scaled:scale")
+                             )
+    
+      #now that we have appropriately scaled variables, create a dataframe to put the x's together for both train and test sets.
+    train.x.std = data.frame(weight.train.std,year.train.std)
+    valid.x.std = data.frame(weight.valid.std,year.valid.std)
+    
+      #completing the knn regression analysis on MPG using the standardized year and weight variables. k = 1
+      #store the predictions in the empty vector of zeroes, at the current iteration's spot.
+      #repeat this process for each iteration of the 10 folds. 
+    predictedCV[test] = knn.reg(train.x.std,valid.x.std,Auto$mpg[!test], k=k[j])$pred
+  }
+    #finally, calculating the CV10 MSE between actual values of MPG in the predicted set vs. actual mpg values.
+    #this CV10 value needs to be stored in the current iteration's "K" value, so it can be plotted once complete with 30 models.
+  allCV[j] = sum((predictedCV-Auto$mpg)^2)/n  
+}
+
+  #finally, both K and the allCV values are plotted, and we observe k=20 as the low point for MSE. 
+plot(k,allCV,type="l")
 
 ```
 
@@ -571,9 +685,13 @@ Upload your plot to the Quiz question.  </span>
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 
 
+k=20
+
 ### <span style="color:DarkViolet">Question 30 </span> **<span style="color:Crimson">(2 points)</span>**:
 
 <span style="color:DarkViolet">Explain why you chose the k value specified in the previous question. *Comment on both model predictive ability and model complexity.*</span>
 
 <span style="color:green">**Text Answer**: </span>
 
+
+I chose k=20 because this appears to have produced the lowest CV10 error value. values for k leading into 20 are on the decline, whereas values after 20 start to show an increase in CV10 error. 
