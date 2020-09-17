@@ -84,7 +84,7 @@ summary(model)
 5
 
 
-ZERO TERMS
+ZERO TERMS - although R2 is high. This might indicate a collinearity issue with the variables, and a VIF() score should be reviewed. 
 *** 
 
 
@@ -379,9 +379,6 @@ for (m in 1:6) {
 #Q17
 
 #Q18
-
-6.649682
-
 
 
 
@@ -694,4 +691,4 @@ k=20
 <span style="color:green">**Text Answer**: </span>
 
 
-I chose k=20 because this appears to have produced the lowest CV10 error value. values for k leading into 20 are on the decline, whereas values after 20 start to show an increase in CV10 error. 
+I chose k=20 because this appears to have produced the lowest CV10 error value. CV10 values for k leading into 20 are on the decline, whereas values after 20 start to show an increase in CV10 error.One could argue that k=14 may be optimal, as it produces another low spot in the CV10 values. The difference between k=14 and k=20 isnt by much, but k=20 is the lowest CV10 value. 
