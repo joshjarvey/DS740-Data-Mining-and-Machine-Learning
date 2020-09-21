@@ -1,0 +1,85 @@
+---
+title: "Webwork 3"
+author: "Josh Jarvey"
+date: "9/20/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(readr)
+library(pROC)
+badregression = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 3/BadRegression.csv")
+
+
+myroc = roc(response = badregression$y, predictor = badregression$predictvals)
+plot.roc(myroc)
+auc(myroc)
+
+
+#The boxplot shows that this model is not doing a decent job of predicting y--it’s actually doing worse than assigning probabilities randomly! This can happen when the training set used to build the regression model is not a good representation of validation set used to build the ROC curve.
+boxplot(badregression$predictvals~badregression$y)
+
+#So why did the ROC curve look decent? The answer is in the R output:
+#    Data: badReg$predictvals in 500 controls (badReg$y 0) > 500 cases (badReg$y 1).
+#This is saying that the predictvals for y=0 tended to be larger than the predictvals for y=1. The roc() function looks at this, and treats an observation as a (true or false) “positive” if the predictval is below each threshold value it tests.
+#This flexibility means that ROC curves work for other purposes than predicted probabilities (for example, predicting that someone will get scurvy if their vitamin C intake is below a certain threshold). But for our purposes, we can force roc() to associate larger probabilities with y=1 using the direction argument:
+myroc = roc(response=badregression$y, predictor=badregression$predictvals, direction = "<")
+plot(myroc)
+auc(myroc)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+library(readr)
+library(pROC)
+heart = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 3/Heart_disease_Cleveland.csv")
+
+summary(heart)
+
+#Sex, ChestPain, HighBloodSugar, ECG, ExerAngina, Slope, and Thal as factors.
+heart$Sex = as.factor(heart$Sex)
+heart$ChestPain = as.factor(heart$ChestPain)
+heart$HighBloodSugar = as.factor(heart$HighBloodSugar)
+heart$ECG = as.factor(heart$ECG)
+heart$ExerAngina = as.factor(heart$ExerAngina)
+heart$Slope = as.factor(heart$Slope)
+heart$Thal = as.factor(heart$Thal)
+
+#setting up a 2 factor variable for if they have HD or not.
+heart$HD = as.factor(ifelse(heart$DiseaseStatus == "0",0,1))
+
+fit = glm(HD~., data = heart, family = "binomial")
+
+
+fit = lm(STdepress~.-HD, data = heart)
+par(mfrow = c(2, 2))
+plot(fit) # where fit is what you called the regression model
+
+
+
+#very right skewed
+hist(heart$STdepress)
+boxplot(heart$STdepress)
+
+  #log of 0 in STdepress would cause -inf, so we have to +1 before we do the log.
+fit2 = lm(log(STdepress+1) ~ .-HD, data = heart)
+plot(fit2)
+
+AIC(fit) #775.8331
+AIC(fit2) #304.5113
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
