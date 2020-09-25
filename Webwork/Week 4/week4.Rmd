@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "9/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+x=2
+  #no dividend
+1/(1+4*exp((20*x-100)/72))
+
+  #yes dividend
+(4*exp((20*x-100)/72))/(1+(4*exp(((20*x)-100)/72)))
+      
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+
+mu1 = 10
+mu2 = 0
+sd_all = 6
+
+mu1/sd_all^2
+log(.8) - ((mu1^2)/(2*sd_all^2))
+
+
+mu2/sd_all^2
+log(.2) - ((mu2^2)/(2*sd_all^2))
+
+xvec = c(-.009,.009)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+
+```{r}
+
+  #read in the data
+dividends = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 4/Dividends.csv")
+  #fit a logisitic regression model to the data. predict y using the variable x
+fit = glm(y~x, data = dividends, family = "binomial")
+
+  
+library(pROC)
+  #create a roc curve object where the response is y from the dataset, and the predictor is x
+myroc = roc(response = dividends$y, predictor = dividends$x)
+  #plot the roc and calculate the area under the curve
+plot.roc(myroc)
+auc(myroc)
+
+  #now fit a second model usind lda
+library(MASS)
+fit2 = lda(y~x, data = dividends)
+
+  #make predictions using the same dataset used to fit the model. $class extracts the predicted classes for each observation.
+fittedclass = predict(fit2,data=dividends)$class
+  #table the actual y values vs. the predicted y values to create a confusion matrix. 
+table(dividends$y,fittedclass)
+
+```
+
+
+```{r}
+  #read in the heart disease data
+heart = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 4/Heart_disease_Cleveland.csv")
+  #select just the quantitative variables
+heart = heart[,c("Age","BloodPressure","Chol","MaxHeartRate","STdepress","DiseaseStatus")]
+
+library(MASS)
+  #fit an lda model predicting disease Status class as a function of heart rate and stdepress
+fit = lda(DiseaseStatus~MaxHeartRate+STdepress, data = heart)
+
+  #make predictions on the classes using the model just fit
+fittedclass = predict(fit, data=heart)$class
+  #build a confusion matrix. Read across diagonal for true positives.
+table(heart$DiseaseStatus,fittedclass)
+
+  #test a new observation -- Where does the asymptomatic variable come in here....?
+patient1 = data.frame(MaxHeartRate = 130, STdepress = 2)
+pred1 = predict(fit, data=patient1)
+
+
+  #fit a second lda model using all the variables.
+fit2 = lda(DiseaseStatus~MaxHeartRate+STdepress+Age+BloodPressure+Chol, data = heart)
+  #make predictions on the classes using this new model
+fittedclass2 = predict(fit2, data=heart)$class
+  #build a confusion matrix and read across the diagonal for true positives. There are more counts in model 2 than model 1, so its better. can use diag() function to pull the diagonal values out of this table. Then do sum()....
+table(heart$DiseaseStatus,fittedclass2)
+
+```
+
+
+
+
+```{r}
+k=5
+p=5
+
+(k+p/2)*(p+1)
+
+
+set.seed(4, sample.kind = "Rounding")
+```
+
+
+```{r}
+n=303
+m = 10
+groups = c(rep(1:m,floor(n/m)),1:(n%%m))
+set.seed(4, sample.kind = "Rounding")
+cvgroups = sample(groups,n)
+
+allpredictedCV1 = allpredictedCV2 = factor(rep(NA,n),levels=c("0","1","2","3","4"))
+for (i in 1:m)  {
+  
+  ldafit1 = lda(DiseaseStatus ~ MaxHeartRate + STdepress, data=heart, subset=(cvgroups!=i))
+  newdata1 = heart[cvgroups==i,c(4,5)]
+  allpredictedCV1[cvgroups==i] = predict(ldafit1,newdata1)$class
+  
+  ldafit2 = lda(DiseaseStatus~., data=heart, subset=(cvgroups!=i))
+  newdata2 = data.frame(heart[cvgroups==i,-6])
+  allpredictedCV2[cvgroups==i] = predict(ldafit2,newdata2)$class
+}
+CVmodel1 = sum(allpredictedCV1!= heart$DiseaseStatus)/n; CVmodel1
+CVmodel2 = sum(allpredictedCV2!= heart$DiseaseStatus)/n; CVmodel2
+
+```
+
+
+
+
+
+
+
+
+

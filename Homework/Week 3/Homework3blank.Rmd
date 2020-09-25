@@ -47,8 +47,8 @@ Tuesday, Sep 26, 2017 at 11:59 PM
  
 
 ```{r echo=FALSE}
-library(readr)
-income = read_csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 3/Wisconsin_income.csv")
+  #read in the dataset
+income = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 3/Wisconsin_income.csv")
 ```
 
 <span style="color:DarkViolet"></span>
@@ -132,28 +132,28 @@ regfit.summary = summary(regfit.full)
 
   #pull the model with the max adjr2
 which.max(regfit.summary$adjr2)
-  #check the coefficients on model 35
-coef(regfit.full,35)
+  #check the coefficients on model 36
+coef(regfit.full,36)
 
 
 
   #pull the model with the min BIC
 which.min(regfit.summary$bic)
-  #check the coefficients on model 18
-coef(regfit.full,18)
+  #check the coefficients on model 19
+coef(regfit.full,19)
 ```
 
 ### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(1 points)</span>**
 <span style="color:DarkViolet">How many variables (not counting the intercept) are in the best model, as measured by adjusted $R^2$?</span>
 
-35, but -1 for intercept? Yes, so 34
+
 
 <span style="color:green">**Numeric Answer**  </span> **<span style="color:red">(AUTOGRADED on D2L)</span>**: 
 
 ### <span style="color:DarkViolet">Question 6</span> **<span style="color:Crimson">(1 points)</span>**
 <span style="color:DarkViolet">How many variables (not counting the intercept) are in the best model, as measured by BIC?</span>
 
-18, but -1 for intercept? Yes, so 17
+
 
 <span style="color:green">**Numeric Answer**  </span> **<span style="color:red">(AUTOGRADED on D2L)</span>**: 
 
@@ -171,13 +171,13 @@ Enter your R code below.</span>
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
 
-# Define a predict() function for regsubsets objects
-predict.regsubsets <- function(object, newdata, id, ...){
-	form = as.formula(object$call[[2]])
-	mat = model.matrix(form, newdata)
-	coefi = coef(object, id=id)
-	xvars = names(coefi)
-	mat[ , xvars] %*% coefi
+predict.regsubsets <- function(object, alldata, subset, id, ...){
+  form = as.formula(object$call[[2]])
+  mat = model.matrix(form, alldata)
+  mat = mat[subset, ]
+  coefi = coef(object, id=id)
+  xvars = names(coefi)
+  mat[ , xvars] %*% coefi
 } # end function predict.regsubsets
 
 
@@ -208,8 +208,8 @@ for(i in 1:k){
 	  #repeat this process for all folds of the cross validation. 
 	for(j in 1:41){
 	    #use custom predict function - pass reg subsets object, the hold out dataset, and the current model (j).
-		y.pred = predict.regsubsets(cv.fit, newdata = income[test,], id=j)
-		  #calculate the CV error and store it in the appropate spot of the matrix
+		y.pred = predict(cv.fit, alldata = income, subset = test, id=j)
+		  #calculate the CV error and store it in the appropriate spot of the matrix
 		group.error[j, i] = mean((income$logPERNP[test]-y.pred)^2)
 	}
 }
@@ -248,14 +248,19 @@ Enter your R code below.</span>
   #then divide by square root of k.
 standard.error = apply(group.error,1,sd)/sqrt(k)
 
-  #because model x had the best MSE, we'll take its MSE value and add one standard error onto it. 
+  #because model 39 had the best MSE, we'll take its MSE value and add one standard error onto it. 
   #Any of the models who's MSE is lower or equal to this is considered acceptable. We can choose the lowest model. 
-which(MSE <= MSE[x]+standard.error[x])
+which(MSE <= MSE[39]+standard.error[39])
 
 
 
-  #check the coefficients on model x, there are p variables in use
-coef(regfit.full,x)
+  #check the coefficients on model 6, there are 6 variables in use
+coef(regfit.full,6)
+
+
+
+  #fit the best subsets regression. #######do we need to redo this?
+regfit.full = regsubsets(logPERNP~.-PERNP-JWMNP,data = income, nvmax = 6)
 ```
 
 ***
@@ -276,7 +281,7 @@ coef(regfit.full,x)
 .  
 
 ***
-
+Holding all else constant, never married women who are self employed make less than their counterparts (men, and other women who work but are not self employed). The amount of hours worked per week, time traveled to the job, and years of education increase total earnings.Having a disability, speaking another language, citizenship status, age, race, hispanic identification, having a stem degree, or the region in which you hail - all have no impact (statistically) in the annual earnings.
 
 
 #####################################################
@@ -303,7 +308,8 @@ data(Auto)
 
   #create a new variable called "highMPG". Set to 1 if the current observation's mpg is greater than the median of all mpgs. Treat as factor.
 Auto$highMPG = as.factor(ifelse(Auto$mpg > median(Auto$mpg),"1","0"))
-
+  #setting origin to a factor variable
+Auto$origin = as.factor(Auto$origin)
 
 plot(Auto)
 ```
@@ -313,7 +319,7 @@ plot(Auto)
 
 <span style="color:green">**Text Answer**: </span>
 
-Yes I do see some issues with collinearity between variables, most of the variables that are regarding a car's engine appear to be correlated together: mpg, cylinders, displacement, horsepower, weight, acceleration. Even the year seems correlated with the mpg (which would make sense as technology improves).
+Yes I do see some issues with collinearity between variables, most of the variables that are regarding a car's engine appear to be correlated together: mpg, cylinders, displacement, horsepower, weight, acceleration. Even the year seems correlated with the mpg (which would make sense as mpg technology improves).
 
 
 ***
@@ -330,7 +336,7 @@ fit = glm(highMPG~.-mpg-name,data = Auto, family = "binomial")
 # Question 15
   #loading the car package
 library(car)
-  #calculating vif scores on the variables within my models. none appear to be above 10. 
+  #calculating vif scores on the variables within my models. Displacement is above 10, and above 3.2 in adjusted.
 vif(fit)
 ```
 
@@ -365,8 +371,8 @@ Enter your R code below.</span>
 ```{r, echo=TRUE}
 # Question 16
 
-  #dropping the "names" variable from the dataset since it causes issues per the above note. 
-Auto2 = Auto[,c(1:8,10)]
+  #dropping the "names", "mpg", and "displacement" variable from the dataset since it causes issues per the above note. 
+Auto2 = within(Auto, rm("mpg","displacement","name"))
   #setting n to be the number of observations in the dataset
 n = nrow(Auto2)
   #using 10-fold cross-validation
@@ -385,7 +391,7 @@ for(i in 1:k){
     #using the current iteration of the CV fold, set up a "test" hold out sample.
   test = (cvgroups == i)
     #perform logistic regression, using all the data EXCEPT the test hold out sample. 
-	fit = glm(highMPG~.-mpg,data = Auto2[!test,], family = "binomial")
+	fit = glm(highMPG~.,data = Auto2[!test,], family = "binomial")
 	  #now, using the hold-out sample, retrieve predicted probabilities (type=response)
 	predictvals[test] = predict(fit, Auto2[test,], type = "response")   
 }
@@ -406,7 +412,7 @@ for(i in 1:k){
 library(pROC)
   #creating the roc object.
 myroc = roc(response = Auto2$highMPG, predictor = predictvals)
-  #calculating the AUC. 0.9679 in this case.
+  #calculating the AUC. 0.9689 in this case.
 auc(myroc)
 ```
 
@@ -425,6 +431,7 @@ plot(myroc)
 
 #The model has a good amount of area under the curve, thus performing much better than "random guessing". The curve jumps up sharply right away in sensitivity (or its ability to predict true positives), for a slight trade-off in 1-specificity (or the false positive rate). Overall, the model does a good job at predicting when cars have a high or low mpg, and at the same time not causing too many errors on false positives.
 
+#playing around with sensitivity and specificity plotting.
 plot(myroc$thresholds,myroc$sensitivities,type="l",col="red")
 lines(myroc$thresholds,myroc$specificities,col="green")
 
