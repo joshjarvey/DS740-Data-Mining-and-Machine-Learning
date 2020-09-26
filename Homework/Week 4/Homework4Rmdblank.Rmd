@@ -1,0 +1,714 @@
+---
+title: "Homework 4 R markdown"
+author: "(your name here)"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 4.5
+  pdf_document:
+    fig_height: 4
+    fig_width: 4.5
+  word_document:
+    fig_height: 4
+    fig_width: 4.5
+---
+
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+#trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+#### <span style="color:Blue">**Intellectual Property:**</span>  
+These problems are the intellectual property of the instructors and may not be reproduced outside of this course.
+
+#### <span style="color:Crimson">**Due Date:**</span>  
+Tuesday, Oct 3, 2017 at 11:59 PM 
+
+***  
+
+##########################################################################
+## Problem 1: Use LDA with One Predictor
+##########################################################################
+
+In this problem, you will use Linear Discriminant Analysis to predict *Domestic* by *mpg* in the analysis of cars. 
+
+**Data**: Use the **Auto** data set from the ISLR package.  We will use several of the continuous variables to classify vehicles into levels of *origin*, as well as into levels of a new variable *Domestic*.
+
+
+#####################################
+### <span style="color:DarkViolet">Question 1</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Define a new variable called Domestic to have the value 1 when the car is domestic (origin = 1, for American) and the value 0 when the car is foreign (origin = 2 or 3, for European or Japanese, respectively). Tabulate the results, and report the count of domestic (Domestic=1) vehicles.</span>
+
+<span style="color:DarkViolet"> Total number of domestic vehicles =</span>
+
+<span style="color:green">**Numeric Answer**  </span> **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #loading the library and data.
+library(ISLR)
+data(Auto)
+
+ #create a new factor variable called domestic where 1 = US, 0 = not domestic.
+Auto$Domestic = as.factor(ifelse(Auto$origin == "1","1","0"))
+
+  #tabulate the total number of foreign vs. domestic cars.
+table(Auto$Domestic)
+
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 2</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Make side-by-side boxplots of the *mpg*, split into two groups by *Domestic*.  Upload your plot in the Canvas question.</span>
+
+<span style="color:green">**Graph Answer**  </span>: 
+```{r,echo=FALSE}
+boxplot(mpg~Domestic, data = Auto, main = "Distribution of Automobile MPG by Foreign vs. Domestic build")
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 3 & 4</span> **<span style="color:Crimson">(2 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Fit the linear discriminant analysis, using the predictor mpg to predict the response Domestic. Report the mean mpg for each group.</span>
+
+```{r,echo=FALSE}
+#Question 3  
+  #load the library
+library(MASS)
+  #fit lda model using mpg as a predictor to domestic
+ldafit1 = lda(Domestic~mpg, data = Auto)
+
+
+#Question 4  
+
+  #check means of each group
+ldafit1$means
+
+```
+
+
+<span style="color:DarkViolet"> Mean mpg for domestic vehicles =</span>
+
+<span style="color:green">**Numeric Answer**  </span> **<span style="color:red">(AUTOGRADED on D2L)</span>**:   
+<span style="color:DarkViolet"> Mean mpg for foreign vehicles =</span>
+
+<span style="color:green">**Numeric Answer**  </span> **<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+
+#####################################
+### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Normal probability plots of mpg for the two groups are shown in the image, for each level of Domestic. Using these, along with the boxplot you produced earlier, discuss whether the two assumptions for running an LDA are reasonably met. </span>
+
+[See Canvas for image, not able to include in code.]  
+
+<span style="color:green">**Text Answer**: </span>
+
+IM ASSUMING YES BECAUSE THOSE BOXPLOTS LOOK FINE (EQUAL VAR AND NORM DISTRIBUTION).
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 6</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Predict the classifications from the LDA fit. Tabulate the variable Domestic with the LDA classification, and report the number of correctly classified domestic vehicles.
+Number of domestic vehicles that are correctly classified = </span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:
+```{r,echo=FALSE}
+
+  #predict the classes in the original data using the lda model 1. 
+predclass1 = predict(ldafit1,data = Auto)$class
+
+  #create a confusion matrix - 204 match 1:1.
+table(predclass1,Auto$Domestic)
+
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 7 & 8</span> **<span style="color:Crimson">(2 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Report the sensitivity and specificity of this LDA classification of Domestic.</span>
+
+```{r,echo=FALSE}
+#Question 7
+
+#sensitivity = true positive / (true positive + false negative)
+204 / (204+41)
+
+#Question 8
+  
+  #specificity = true negatives / (true negatives + false positives)
+90 / (90+57)
+
+```
+
+
+<span style="color:DarkViolet"> sensitivity (as a percentage) =</span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+<span style="color:DarkViolet"> specificity (as a percentage) =</span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 9</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">There are six other possible predictors of *Domestic*: variables *cylinders*, *displacement*, *horsepower*, *weight*, *acceleration*, *year*.  Use plots to explore how these variables are related to *Domestic*, and select **one** that appears more discriminating between foreign and domestic vehicles. </span>
+
+```{r}
+#create boxplots to check for a better "discriminatory" variable. Seems like displacement or weight. 
+boxplot(cylinders~Domestic, data = Auto)
+boxplot(displacement~Domestic, data = Auto)
+boxplot(horsepower~Domestic, data = Auto)
+boxplot(weight~Domestic, data = Auto)
+boxplot(acceleration~Domestic, data = Auto)
+boxplot(year~Domestic, data = Auto)
+```
+
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:   one of  
+A) 	cylinders,  
+B) 	displacement,  
+C) 	horsepower,  
+D) 	weight,  
+E) 	acceleration,  
+F) 	year
+
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 10</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Would you prefer to use LDA or QDA when using the variable selected in the previous question to predict Domestic? Explain your reasoning.</span>
+
+<span style="color:green">**Text Answer**: </span>
+
+
+### Would have to use QDA here because the variances do not look equal, which is a requirement for LDA. ###
+
+
+#####################################
+### <span style="color:DarkViolet">Question 11</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Produce a ROC curve for using the variable you selected (among cylinders, displacement, horsepower, weight, acceleration, year) for predicting Domestic. Upload your ROC curve to Homework 4: ROC Curve.</span>
+
+<span style="color:green">**Graph Answer**  </span>: 
+(post in Canvas question)
+```{r,echo=FALSE}
+  #import the package
+library(pROC)
+  #create a roc object using Domestic as a function of displacement. 
+myroc = roc(response = Auto$Domestic, predictor = Auto$displacement)
+  #plot the roc object
+plot(myroc)
+  #check AUC, because why not :)
+auc(myroc)
+
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 12</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> The ROC curve and R output for using *mpg* to predict *Domestic* is shown in the image. Discuss whether you would use *mpg* or the variable you selected previously (among *cylinders*, *displacement*, *horsepower*, *weight*, *acceleration*, *year*) to predict *Domestic*.</span>
+
+[See Canvas for image, not able to include in code.]  
+
+<span style="color:green">**Text Answer**: </span>
+
+***
+
+AUC looks smaller for mpg, so displacement is the winner. 
+
+##########################################################################
+## Problem 2:  Use LDA & QDA with Multiple Predictors
+##########################################################################
+
+<span style="color:DarkViolet">In this problem, you will use Linear and Quadratic Discriminant Analysis to predict origin by *mpg*, *cylinders*, *displacement*, *horsepower*, and *weight* in the analysis of cars. </span>
+
+<span style="color:DarkViolet">Data: Use the **Auto** data set from the **ISLR** package.  We will use several of the continuous variables to classify vehicles into levels of *origin*, as well as into levels of a new variable *Domestic*.</span>
+
+#####################################
+### <span style="color:DarkViolet">Question 13</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Make a scatterplot of *mpg* and *displacement*, marked by *origin*, along with an appropriate legend.  Upload your plot. </span>
+
+
+<span style="color:green">**Graph Answer**  </span>: 
+(post to the Canvas question)
+```{r,echo=FALSE}
+  #import ggformula 
+library(ggformula)
+
+  #creating a scatterplot with mpg on y and displacement on x. Colored by the factor of origin.
+gf_point(mpg~displacement,color = ~Origin, data = Auto %>% mutate(Origin = factor(origin))) %>% 
+  gf_labs(title = "Car mpg as a function of displacement (among 3 origins) ")
+
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 14-16 </span> **<span style="color:Crimson">(3 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Fit the linear discriminant analysis, using the predictors mpg, cylinders, displacement, horsepower, and weight to predict the response origin. Report the mean mpg for each group.</span>   
+
+```{r,echo=FALSE}
+#Question 14
+
+  #switching origin to a factor variable for the LDA
+Auto$origin = as.factor(Auto$origin)
+
+  #fit the lda model using the specified predictors.
+ldafit2 = lda(origin~mpg+cylinders+displacement+horsepower+weight, data = Auto)
+  
+  #pull out the mean values of each variable by group
+ldafit2$means
+
+#Question 15
+
+
+#Question 16
+```
+
+Mean mpg for American vehicles =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Mean mpg for European vehicles =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Mean mpg for Japanese vehicles =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 17-19 </span> **<span style="color:Crimson">(3 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Predict the classifications from the LDA fit. Cross-tabulate the variable origin with the LDA classification, and report the number of correctly classified vehicles, for each of American, European, and Japanese.  
+**Note**: overall error rate is 0.2551.     </span>
+
+
+```{r,echo=FALSE}
+#Question 17
+
+#1=USA, 2=EU, 3=JP
+
+  #use the model to predict the origin from the original dataset.
+predclass2 = predict(ldafit2,data = Auto)$class
+
+  #create a confusion matrix 
+table(predclass2,Auto$origin)
+
+#Question 18
+
+
+
+
+#Question 19
+```
+
+Number of American vehicles that are correctly classified =  208
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+Number of European vehicles that are correctly classified =  27
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+ 
+Number of Japanese vehicles that are correctly classified =  57
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 20</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Using the **LDA** fit, for a vehicle which has:  
+* 20 mpg,  
+* 8 cylinders,  
+* displacement of 320 $in^3$,  
+* 280 horsepower, and  
+* weight of 3600 pounds,  
+predict whether the vehicle is American, European, or Japanese.
+</span>
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+American,  
+European,  
+Japanese  
+
+***
+
+```{r}
+  #create a new "car" observation with the following traits
+car1 = data.frame(mpg=20,cylinders=8,displacement=320,horsepower=280,weight=3600)
+
+  #using the lda2 fit, predict the origin of the new car.
+predict(ldafit2,car1)$class
+
+```
+
+#####################################
+### <span style="color:DarkViolet">Questions 21-23 </span> **<span style="color:Crimson">(3 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Predict the classifications from the QDA fit. Cross-tabulate the variable origin with the QDA classification, and report the number of correctly classified vehicles, for each of American, European, and Japanese.  
+**Note**: overall error rate is 0.2245.    
+
+```{r,echo=FALSE}
+#Question 21
+
+  #fit the qda model using the specified predictors.
+qdafit1 = qda(origin~mpg+cylinders+displacement+horsepower+weight, data = Auto)
+
+  #predict origin using the qda model.
+predclass3 = predict(qdafit1,data = Auto)$class
+
+  #create a confusion matrix 
+table(predclass3,Auto$origin)
+
+#Question 22
+
+
+
+#Question 23
+```
+
+Number of American vehicles that are correctly classified =  206
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+Number of European vehicles that are correctly classified =  29
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+ 
+Number of Japanese vehicles that are correctly classified =  69
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**: 
+
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 24</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Using the **QDA** fit, for a vehicle which has:  
+* 20 mpg,  
+* 8 cylinders,  
+* displacement of 320 $in^3$,  
+* 280 horsepower, and  
+* weight of 3600 pounds,  
+predict whether the vehicle is American, European, or Japanese.
+</span>
+
+
+```{r}
+
+  #using the qda1 fit, predict the origin of the new car. american - which sounds more realistic.
+predict(qdafit1,car1)$class
+
+
+```
+
+
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+American,  
+European,  
+Japanese  
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 25</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Describe how the predictive abilities (as assessed on the original data) compare between LDA and QDA fits.</span>
+
+
+##The QDA model makes much less classification errors overall as compared to the LDA model. I believe this is because the variances for the predictors between the classes are not equal, therefore the assumption of equal variances for the LDA model are not met and can explain its poor performance. 
+
+
+<span style="color:green">**Text Answer**: </span>
+
+***
+
+
+##########################################################################
+## Problem 3: Model Selection with LDA and QDA
+##########################################################################
+
+<span style="color:DarkViolet">While we can make some sort of model comparison using the full dataset for both fitting and selection, it is not entirely valid since we are not using truly new data.  Thus, we will use cross-validation to compare models.  We will consider three LDA and three QDA models to predict the response origin.  
+**Data**: Use the **Auto** data set from the **ISLR** package.  We will use several of the continuous variables to classify vehicles into levels of *origin*, as well as into levels of a new variable *Domestic*. </span>
+
+<span style="color:DarkViolet">**Information**  
+Model 1:  LDA using the predictor displacement.  
+Model 2:  LDA using the predictors mpg and displacement.  
+Model 3:  LDA using the predictors mpg, cylinders, displacement, horsepower, and weight.  
+Model 4:  QDA using the predictor displacement.  
+Model 5:  QDA using the predictors mpg and displacement.  
+Model 6:  QDA using the predictors mpg, cylinders, displacement, horsepower, and weight. 
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 26-31 </span> **<span style="color:Crimson">(6 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Determine the number of parameters that must be estimated for each model.  </span>
+
+
+```{r,echo=FALSE}
+
+
+singleParameterLDA <- function(k){
+  return(2*k+1)
+}
+
+
+multiParameterLDA <- function(k,p){
+  return((k+p/2)*(p+1))
+}
+
+
+ParameterQDA <- function(k,p){
+  return(k*(p+1)*(p/2+1))
+}
+
+# k = for number of classes;;; p = for number of predictors being used.
+
+
+#Question 26
+
+singleParameterLDA(k=3)
+
+#Question 27
+
+multiParameterLDA(k=3,p=2)
+
+#Question 28
+
+multiParameterLDA(k=3,p=5)
+
+#Question 29
+
+ParameterQDA(k=3,p=1)
+
+#Question 30
+
+ParameterQDA(k=3,p=2)
+
+#Question 31
+
+ParameterQDA(k=3,p=5)
+
+
+```
+
+
+Model 1: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Model 2: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Model 3: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Model 4: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+
+Model 5: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Model 6: # of parameters =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+  
+
+
+*** 
+
+#####################################
+### <span style="color:DarkViolet">Question 32 </span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Set R’s seed to 4 (for Homework 4) and define cvgroups (random groups for the cross-validation) using the sample() function.</span>
+
+```{r, echo=TRUE}
+m = 10; n=392
+groups = c(rep(1:m,floor(n/m)),c(1:(n%%m)))  
+set.seed(4, sample.kind = "Rounding")
+cvgroups = sample(groups,n); table(cvgroups)
+```
+
+<span style="color:DarkViolet"> Using the cvgroups as just defined, use 10-fold cross-validation method to calculate CV(10) for each of Models 1-6. Report the CV(10) for Models 1 and 2. </span>
+
+
+
+#####################################
+### <span style="color:DarkViolet">Questions 32-33 </span> **<span style="color:Crimson">(2 points, 1 each)</span>**:
+#####################################
+
+<span style="color:DarkViolet">For the grouping of the data described in the previous question, use 10-fold cross-validation method to calculate $CV_{(10)}$ for each of Models 1-6. Report the $CV_{(10)}$ for Models 1 and 2.  </span>
+
+
+```{r,echo=FALSE}
+#Question 32
+#Question 33
+
+# Full code for Question 34
+```
+
+
+
+Model 1: $CV_{(10)}$ =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+Model 2: $CV_{(10)}$ =  
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+#####################################
+### <span style="color:DarkViolet">Question 34</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Include all your code (that is, the full loop process) for  computing honest predictions and the CV(10) measure for the six models.
+</span>
+
+#####################################
+### <span style="color:DarkViolet">Question 35</span> **<span style="color:Crimson">(1 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Which model would you select based on the values of $CV_{(10)}$ for 10-fold CV?
+</span>
+
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+Model 1,  
+Model 2,  
+Model 3,  
+Model 4,  
+Model 5,  
+Model 6  
+
+
+#####################################
+### <span style="color:DarkViolet">Question 36</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Suggest a possible reason behind the preference between model 3 and model 6, related to the number of parameters that need to be estimated for each model 3 and model 6.</span>
+
+
+<span style="color:green">**Text Answer**: </span>
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 37</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Comparing Model 1 to 2 to 3 and Model 4 to 5 to 6, we observe improvement in predictive ability by including more than two predictors. Discuss why, using the scatterplots in the image to compare predictors in your discussion.  </span>
+
+
+[See Canvas for image, not able to include in code.]  
+
+<span style="color:green">**Text Answer**: </span>
+
+
+
+***
+
+##########################################################################
+## Problem 4: Checking Assumptions
+##########################################################################
+
+<span style="color:DarkViolet">We applied the LDA and QDA models, which are potentially appropriate models for the qualitative response variable being used in this homework.  Let’s consider Model 6 (the most flexible model) from Problem 3:  
+*Model 6*:  QDA using the predictors mpg, cylinders, displacement, horsepower, and weight.  
+If we fit this model on the full data set and predict the data using that model, we obtain an overall error rate of about 0.224.  This is a relatively high error rate, particularly since only American and Japanese autos appear to be classified reasonably well (note that European cars have about a 57% error rate):</span>
+
+                   predicted  
+                   1   2   3
+               1 206  15  24
+               2   6  29  33
+               3   6   4  69
+
+<span style="color:DarkViolet">Noting that the $CV_{(10)}$ measure estimates an even higher (more realistic) error rate, we appear to only be getting a moderate fit at best.</span>
+
+#####################################
+### <span style="color:DarkViolet">Question 38</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">When we use a model, we want it to fit with the behavior of the data; the mathematical theory must fit reasonably well with reality. This is checked by evaluating whether assumptions for the model are met.  For the Model 6 fit on the full dataset, check the assumption of multivariate normality for the three sets of variables (split by *origin*).  Enter your R commands below. </span>
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 39</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Explain what your observations from the previous question tell you about the appropriateness of the QDA model for predicting *origin* for this data.</span>
+
+<span style="color:green">**Text Answer**: </span>
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 40</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> Provide an alternative method, suited to the qualitative response origin, that could be used for prediction. You may provide explanation / reasoning to support your choice.</span>
+
+<span style="color:green">**Text Answer**: </span>

@@ -116,36 +116,106 @@ p=5
 (k+p/2)*(p+1)
 
 
-set.seed(4, sample.kind = "Rounding")
+
 ```
 
 
 ```{r}
+  #sample size is all observations
 n=303
+  #completing 10-fold cross validations. using m so were not confused with k-classes
 m = 10
+  #creating an index vector for the folds, with the remainder 1,2,3.
 groups = c(rep(1:m,floor(n/m)),1:(n%%m))
+  #setting seed for reproducability
 set.seed(4, sample.kind = "Rounding")
+  #randomize the index vector
 cvgroups = sample(groups,n)
 
+  #create empty vector of NA's that is 303 spaces long, and is a factor vector with items 0-4.
 allpredictedCV1 = allpredictedCV2 = factor(rep(NA,n),levels=c("0","1","2","3","4"))
+
+  #iterate through for 10 folds.
 for (i in 1:m)  {
-  
+    #fit the first lda model using 2 variables
+    #fit only on the training data
   ldafit1 = lda(DiseaseStatus ~ MaxHeartRate + STdepress, data=heart, subset=(cvgroups!=i))
+    #using the hold-out sample, create a new dataset with just the variables being used during the fit process
   newdata1 = heart[cvgroups==i,c(4,5)]
+    #complete the predict function using the lda1 model and the hold-out data. 
+    #this returns class predictions (categorical), so we store the predicted classes into the allpredictedCV empty vector
+    #based on the index of where the current fold "i" is located, store the class value into that spot in the allpredictedCV vec
   allpredictedCV1[cvgroups==i] = predict(ldafit1,newdata1)$class
   
+    #perform the same process using a 2nd lda model using all variables
   ldafit2 = lda(DiseaseStatus~., data=heart, subset=(cvgroups!=i))
+    #create the new hold-out dataset, but we dont want column 6 which is the response value in this case.
   newdata2 = data.frame(heart[cvgroups==i,-6])
   allpredictedCV2[cvgroups==i] = predict(ldafit2,newdata2)$class
 }
+
+  #now that we have all the predicted classes, check the error.
+  #first go through the predicted class and find where it doesnt match the actual class - this is considered an error
+  #sum all these errors up, and divide by total sample size to get CV error. 
 CVmodel1 = sum(allpredictedCV1!= heart$DiseaseStatus)/n; CVmodel1
 CVmodel2 = sum(allpredictedCV2!= heart$DiseaseStatus)/n; CVmodel2
 
 ```
 
 
+```{r}
+
+  #fit a second lda model using all the variables.
+fit3 = qda(DiseaseStatus~MaxHeartRate+STdepress, data = heart)
+
+  #loop through each disease status class, and calculate the standard deviation of STdepress for each class. 
+for (i in 0:4) print(sd(heart$STdepress[heart$DiseaseStatus==i]))
+
+  #make predictions on the classes using this new model
+fittedclass3 = predict(fit3, data=heart)$class
+  #build a confusion matrix and read across the diagonal for true positives. There are more counts in model 2 than model 1, so its better. can use diag() function to pull the diagonal values out of this table. Then do sum()....
+table(heart$DiseaseStatus,fittedclass3)
 
 
+  #fit a second lda model using all the variables.
+fit4 = qda(DiseaseStatus~., data = heart)
+  #make predictions on the classes using this new model
+fittedclass4 = predict(fit4, data=heart)$class
+  #build a confusion matrix and read across the diagonal for true positives. There are more counts in model 2 than model 1, so its better. can use diag() function to pull the diagonal values out of this table. Then do sum()....
+table(heart$DiseaseStatus,fittedclass4)
+
+```
+
+
+
+```{r}
+#QDA model parameters
+k1 = 5
+p1 = 2
+k1*(p1+1)*(p1/2+1)
+
+
+k2 = 5
+p2 = 5
+k2*(p2+1)*(p2/2+1)
+```
+
+
+```{r}
+allpredictedCV3 = allpredictedCV4 = factor(rep(NA,n),levels=c("0","1","2","3","4"))
+for (i in 1:m)  {
+  qdafit3 = qda(DiseaseStatus ~ MaxHeartRate + STdepress, data=heart, subset=(cvgroups!=i))
+  newdata3 = heart[cvgroups==i,c(4,5)]
+  allpredictedCV3[cvgroups==i] = predict(qdafit3,newdata3)$class
+  qdafit4 = qda(DiseaseStatus~., data=heart, subset=(cvgroups!=i))
+  newdata4 = data.frame(heart[cvgroups==i,-6])
+  allpredictedCV4[cvgroups==i] = predict(qdafit4,newdata4)$class
+}
+CVmodel3 = sum(allpredictedCV3!= heart$DiseaseStatus)/n; CVmodel3
+CVmodel4 = sum(allpredictedCV4!= heart$DiseaseStatus)/n; CVmodel4
+
+
+```
 
 
 
