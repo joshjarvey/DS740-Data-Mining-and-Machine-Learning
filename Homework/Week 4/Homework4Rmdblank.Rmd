@@ -118,7 +118,7 @@ ldafit1$means
 
 <span style="color:green">**Text Answer**: </span>
 
-IM ASSUMING YES BECAUSE THOSE BOXPLOTS LOOK FINE (EQUAL VAR AND NORM DISTRIBUTION).
+
 
 ***
 
@@ -179,6 +179,9 @@ table(predclass1,Auto$Domestic)
 #####################################
 
 <span style="color:DarkViolet">There are six other possible predictors of *Domestic*: variables *cylinders*, *displacement*, *horsepower*, *weight*, *acceleration*, *year*.  Use plots to explore how these variables are related to *Domestic*, and select **one** that appears more discriminating between foreign and domestic vehicles. </span>
+
+
+###Upon examination of a boxplot of the class variable for each predictor, it appears the predictor "displacement" has the least amount of overlap between the two classes and therefore hints at a better choice for a 1-predictor model.
 
 ```{r}
 #create boxplots to check for a better "discriminatory" variable. Seems like displacement or weight. 
@@ -247,7 +250,7 @@ auc(myroc)
 
 ***
 
-AUC looks smaller for mpg, so displacement is the winner. 
+###The ROC curve that's created when using displacement pulls much tighter to the upper left hand corner, thus producing a higher AUC (0.9267) - therefore I would select displacement over mpg as the predictor of choice.
 
 ##########################################################################
 ## Problem 2:  Use LDA & QDA with Multiple Predictors
@@ -602,6 +605,63 @@ cvgroups = sample(groups,n); table(cvgroups)
 
 ```{r,echo=FALSE}
 #Question 32
+
+  #create empty vector of NA's that is 392 spaces long, and is a factor vector with items 0-4.
+allpredictedCV1 = allpredictedCV2 = allpredictedCV3 = allpredictedCV4 = allpredictedCV5 = allpredictedCV6 = factor(rep(NA,n),levels=c("1","2","3"))
+
+  #iterate through for 10 folds.
+for (i in 1:m)  {
+    #fit the first lda model using 1 variable
+    #fit only on the training data
+  ldafit1 = lda(origin ~ displacement, data=Auto, subset=(cvgroups!=i))
+    #using the hold-out sample, create a new dataset with just the variable being used during the fit process
+  newdata1 = data.frame(displacement=Auto[cvgroups==i,3])
+    #complete the predict function using the lda1 model and the hold-out data. 
+    #this returns class predictions (categorical), so we store the predicted classes into the allpredictedCV empty vector
+    #based on the index of where the current fold "i" is located, store the class value into that spot in the allpredictedCV vector
+  allpredictedCV1[cvgroups==i] = predict(ldafit1,newdata1)$class
+
+    #repeat process for model 2
+  ldafit2 = lda(origin ~ mpg + displacement, data=Auto, subset=(cvgroups!=i))
+  newdata2 = Auto[cvgroups==i,c(1,3)]
+  allpredictedCV2[cvgroups==i] = predict(ldafit2,newdata2)$class
+    
+    #repeat process for model 3
+  ldafit3 = lda(origin ~ mpg + cylinders + displacement + horsepower + weight, data=Auto, subset=(cvgroups!=i))
+  newdata3 = Auto[cvgroups==i,c(1,2,3,4,5)]
+  allpredictedCV3[cvgroups==i] = predict(ldafit3,newdata3)$class  
+  
+  
+    #note: do not need to recreate the hold-out set since we already did that above  
+    #fit the first qda model using 1 variable
+    #fit only on the training data
+  qdafit1 = qda(origin ~ displacement, data=Auto, subset=(cvgroups!=i))
+    #complete the predict function using the qda1 model and the hold-out data. 
+    #this returns class predictions (categorical), so we store the predicted classes into the allpredictedCV empty vector
+    #based on the index of where the current fold "i" is located, store the class value into that spot in the allpredictedCV vector
+  allpredictedCV4[cvgroups==i] = predict(qdafit1,newdata1)$class
+
+    #repeat process for model 5
+  qdafit2 = qda(origin ~ mpg + displacement, data=Auto, subset=(cvgroups!=i))
+  allpredictedCV5[cvgroups==i] = predict(qdafit2,newdata2)$class
+    
+    #repeat process for model 6
+  qdafit3 = qda(origin ~ mpg + cylinders + displacement + horsepower + weight, data=Auto, subset=(cvgroups!=i))
+  allpredictedCV6[cvgroups==i] = predict(qdafit3,newdata3)$class   
+ 
+}
+
+  #now that we have all the predicted classes, check the error.
+  #first go through the predicted class and find where it doesnt match the actual class - this is considered an error
+  #sum all these errors up, and divide by total sample size to get CV error. 
+CVmodel1 = sum(allpredictedCV1!= Auto$origin)/n; CVmodel1
+CVmodel2 = sum(allpredictedCV2!= Auto$origin)/n; CVmodel2
+CVmodel3 = sum(allpredictedCV3!= Auto$origin)/n; CVmodel3
+CVmodel4 = sum(allpredictedCV4!= Auto$origin)/n; CVmodel4
+CVmodel5 = sum(allpredictedCV5!= Auto$origin)/n; CVmodel5
+CVmodel6 = sum(allpredictedCV6!= Auto$origin)/n; CVmodel6
+
+
 #Question 33
 
 # Full code for Question 34
@@ -636,7 +696,7 @@ Model 2: $CV_{(10)}$ =
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
 Model 1,  
 Model 2,  
-Model 3,  
+Model 3,  will choose model 3 because it has the lowest CV10 error.
 Model 4,  
 Model 5,  
 Model 6  
@@ -649,8 +709,19 @@ Model 6
 <span style="color:DarkViolet"> Suggest a possible reason behind the preference between model 3 and model 6, related to the number of parameters that need to be estimated for each model 3 and model 6.</span>
 
 
+### Model 3 has just about half the number of parameters to be estimated as compared to model 6, which makes it a more simple model. 
+
 <span style="color:green">**Text Answer**: </span>
 
+
+```{r}
+boxplot(mpg~origin, data = Auto)
+boxplot(cylinders~origin, data = Auto)
+boxplot(displacement~origin, data = Auto)
+boxplot(horsepower~origin, data = Auto)
+boxplot(weight~origin, data = Auto)
+
+```
 
 
 #####################################
@@ -664,7 +735,7 @@ Model 6
 
 <span style="color:green">**Text Answer**: </span>
 
-
+###There's a clear relationship (most of them linear) between the variables per the scatterplot above. Only including one of the variables doesn't give you the "full picture", therefore the more you include, the more accurate the model becomes.
 
 ***
 
@@ -692,6 +763,29 @@ If we fit this model on the full data set and predict the data using that model,
 
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
+  #since we use a lot of variables here, attaching the dataset for simplicity
+attach(Auto)
+
+  #next we build the a matrix of the x-variables used in model 6.
+xvar = cbind(mpg,cylinders,displacement,horsepower,weight)
+  #to perform the hz test for multi-variate normality, we pull a subset of the observations by each "origin" class.
+xUS = xvar[origin == "1",]
+xEU = xvar[origin == "2",]
+xJP = xvar[origin == "3",]
+
+library(MVN)
+  #using the mvn() function, we perform an "hz" test on each subset of the data. 
+mvn(xUS, mvnTest = "hz")
+mvn(xEU, mvnTest = "hz")
+mvn(xJP, mvnTest = "hz")
+  #all of these have a p-value thats less than 0.05, therefore we reject that they have multivariate normality...not good for the models.
+
+library(biotools)
+  #next we perform a boxM test on the x-variables dataset, but split it up by origin. 
+  #This checks the covariance matrix of each subset of the x variables to see if they are equal to each other. 
+boxM(xvar,origin)
+  #equal covariance matrices are definitely NOT reasonable since the pvalue is very low, we reject the notion of equal covaraince matrices. 
+
 ```
 
 
@@ -704,6 +798,8 @@ If we fit this model on the full data set and predict the data using that model,
 <span style="color:green">**Text Answer**: </span>
 
 
+###Considering the multivariate normality was shown not to hold true, the QDA model is not appropriate to use with this data.
+
 
 #####################################
 ### <span style="color:DarkViolet">Question 40</span> **<span style="color:Crimson">(2 points)</span>**:
@@ -712,3 +808,6 @@ If we fit this model on the full data set and predict the data using that model,
 <span style="color:DarkViolet"> Provide an alternative method, suited to the qualitative response origin, that could be used for prediction. You may provide explanation / reasoning to support your choice.</span>
 
 <span style="color:green">**Text Answer**: </span>
+
+
+### We may want to consider using k-nearest neighbors in this scenario since it doesnt have the requirement for normality.
