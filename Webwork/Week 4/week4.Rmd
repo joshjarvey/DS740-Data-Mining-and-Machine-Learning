@@ -72,8 +72,11 @@ fit2 = lda(y~x, data = dividends)
   #make predictions using the same dataset used to fit the model. $class extracts the predicted classes for each observation.
 fittedclass = predict(fit2,data=dividends)$class
   #table the actual y values vs. the predicted y values to create a confusion matrix. 
-table(dividends$y,fittedclass)
+table(fittedclass,dividends$y)
 
+
+#sensitivity = the number that sits in 1-1 (762), divided by the sum of that column. 
+#specificity = the number that sits in 0-0 (107), divided by the sum of that column.
 ```
 
 

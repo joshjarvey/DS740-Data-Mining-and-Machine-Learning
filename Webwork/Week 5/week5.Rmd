@@ -1,0 +1,237 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "9/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+  #read in the dataset
+heart = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 5/Heart_disease_Cleveland.csv")
+
+  #removing 6 observations due to missing data
+heart = heart[-c(88,167,193,267,288,303),]
+
+  #transforming STdpress with a log transformation. Add +1 to keep from infinity.
+heart$log.STdepress = log(heart$STdepress+1)
+  #remove the non-transformed STdepressed from the dataset.
+heart = heart[,-10]
+
+  #setting as factor variables.
+heart$Sex = as.factor(heart$Sex)
+heart$ChestPain = as.factor(heart$ChestPain)
+heart$HighBloodSugar = as.factor(heart$HighBloodSugar)
+heart$ECG = as.factor(heart$ECG)
+heart$ExerAngina = as.factor(heart$ExerAngina)
+heart$Slope = as.factor(heart$Slope)
+heart$Thal = as.factor(heart$Thal)
+heart$DiseaseStatus = as.factor(heart$DiseaseStatus)
+
+
+  #finding the correlation of the numeric variables
+  #next use abs() to get the absolute value
+  #finally, round to 3 decimal points
+round(abs(cor(heart[,c(1,4,5,8,11)])),3)
+
+
+```
+
+
+
+
+```{r}
+  #load in the dataset and create a new dataframe for manipulation
+library(MASS)
+data("Boston"); BostonNew = Boston
+
+  #add log transformed versions of the crim and zn predictors.
+BostonNew$log.crim = log(BostonNew$crim)
+BostonNew$log.zn = log(BostonNew$zn+1)
+  #and remove the non-transformed crim & zn from the dataset.
+BostonNew = BostonNew[,-c(1,2)]
+
+  #set chas as a factor.
+BostonNew$chas = as.factor(BostonNew$chas)
+
+
+  #side note:BostonNew[,c(1:11,14)]
+  #create my matrix of x's using the model.matrix() function. 
+  #This function creates a matrix of the predictors as specified using the syntax we'd see in a model fitting process.
+  #the nice thing here is if any of these are factors, it will create the "dummy" variables, so we can avoid doing so manually.
+x = model.matrix(log.crim~.,data = BostonNew)[,-1]
+
+  #pull my response variable log.crim into "y"
+y = BostonNew[,13]
+
+
+  #load the glmnet library
+library(glmnet)
+  #create a vector of lambda's between 0.001 to 1, by 0.001 increments. Ordered greatest to least.
+lambdalist = seq(1,.001, by=-0.001)
+
+#RIDGE REGRESSION
+  #fit the ridge regression model (alpha = 0), and use the 1000x lambda vector
+RRfit = glmnet(x,y,alpha = 0,lambda = lambdalist)
+  #check coefficients where s=0.05
+coef(RRfit,s=0.05)
+
+#LASSO
+  #fit the Lasso regression model (alpha = 1), and use the 1000x lambda vector
+LRfit = glmnet(x,y,alpha = 1,lambda = lambdalist)
+  #check coefficients where s=0.05
+coef(LRfit,s=0.05)
+
+#ELASTIC NET
+  #fit the Elastic Net regression model (alpha = 0.50), and use the 1000x lambda vector
+EN50fit = glmnet(x,y,alpha = 0.50,lambda = lambdalist)
+  #check coefficients where s=0.05
+coef(EN50fit,s=0.05)
+
+```
+
+
+```{r}
+#set seed for reproducability.
+set.seed(5, sample.kind = "Rounding")
+```
+
+```{r}
+  #k=number of cross validation folds, 10
+k = 10
+  #n=sample size, 506
+n = nrow(BostonNew)
+  #create a new vector that contains labels of 1-10, 50x times. The remainder 1-6 is added at the end.
+groups=c(rep(1:k,floor(n/k)),(1:(n-k*floor(n/k))))
+  #randomly shuffle the groups vector.
+cvgroups = sample(groups,n)
+
+
+  #load the glmnet library
+library(glmnet)
+  #create a vector of lambda's between 0.001 to 1, by 0.001 increments. Ordered greatest to least.
+lambdalist = seq(1,.001, by=-0.001)
+
+#RIDGE REGRESSION
+  #fit the ridge regression model (alpha = 0), and use the 1000x lambda vector
+cvRRfit = cv.glmnet(x, y, alpha = 0, lambda = lambdalist, nfolds=k, foldid=cvgroups)
+
+  #find the minimum CV error rate based on all the different lambda values.
+min(cvRRfit$cvm)
+  #order the CV error rates by lowest to greatest, and find the indice where its the lowest
+whichlowestcvRR = order(cvRRfit$cvm)[1]
+  #use that indicie to find the lambda value.
+bestlambdaRR = lambdalist[whichlowestcvRR]
+bestlambdaRR
+
+
+
+#LASSO REGRESSION
+  #fit the LASSO regression model (alpha = 1), and use the 1000x lambda vector
+cvLRfit = cv.glmnet(x, y, alpha = 1, lambda = lambdalist, nfolds=k, foldid=cvgroups)
+
+  #find the minimum CV error rate based on all the different lambda values.
+min(cvLRfit$cvm)
+  #order the CV error rates by lowest to greatest, and find the indice where its the lowest
+whichlowestcvLR = order(cvLRfit$cvm)[1]
+  #use that indicie to find the lambda value.
+bestlambdaLR = lambdalist[whichlowestcvLR]
+bestlambdaLR
+
+
+
+
+
+#ELASTIC NET REGRESSION
+  #fit the Elastic Net regression model (alpha = 0), and use the 1000x lambda vector
+cvENfit = cv.glmnet(x, y, alpha = 0.50, lambda = lambdalist, nfolds=k, foldid=cvgroups)
+
+  #find the minimum CV error rate based on all the different lambda values.
+min(cvENfit$cvm)
+  #order the CV error rates by lowest to greatest, and find the indice where its the lowest
+whichlowestcvEN = order(cvENfit$cvm)[1]
+  #use that indicie to find the lambda value.
+bestlambdaEN = lambdalist[whichlowestcvEN]
+bestlambdaEN
+```
+
+```{r}
+  #load the bootstrap library
+library(boot)
+
+  #Create 3 helper functions for the bootstrap 
+#one for the best-fitting (Ridge Regression) model
+beta.fn.RR = function(inputdata,index) {
+    #after pulling in the inputdata, take the first column as the y-values (log.crim)
+  yboot = inputdata[index,1]
+    #after pulling in the inputdata, take the remaining columns as the x-values (13x predictors)
+  xboot = inputdata[index,-1]
+    #fit the ridge regression model using the best fitting lambda
+  RRfitboot = glmnet(xboot, yboot, alpha = 0,lambda=lambdalist)
+    #return the vector of coefficients for this iteration of the bootstrap.
+  return(coef(RRfitboot,s=bestlambdaRR)[,1])
+}
+
+# do the same for the best-fitting (LASSO) model
+beta.fn.LR = function(inputdata,index) {
+  yboot = inputdata[index,1]
+  xboot = inputdata[index,-1]
+  LRfitboot = glmnet(xboot, yboot, alpha = 1,lambda=lambdalist)
+  return(coef(LRfitboot,s=bestlambdaLR)[,1])
+}
+
+# do the same for the best-fitting (Elastic Net) model
+beta.fn.ENET = function(inputdata,index) {
+  yboot = inputdata[index,1]
+  xboot = inputdata[index,-1]
+  ENETfitboot = glmnet(xboot, yboot, alpha = 0.50,lambda=lambdalist)
+  return(coef(ENETfitboot,s=bestlambdaEN)[,1])
+}
+set.seed(5, sample.kind = "Rounding")
+  #perform the bootstrap 1000x for each model type
+  #make sure to bind the dataset together (and it will be split again once inside the function).
+RRbootoutput = boot(cbind(y,x),beta.fn.RR,R=1000)
+set.seed(5, sample.kind = "Rounding")
+LRbootoutput = boot(cbind(y,x),beta.fn.LR,R=1000)
+set.seed(5, sample.kind = "Rounding")
+ENETbootoutput = boot(cbind(y,x),beta.fn.ENET,R=1000)
+
+#(RRbootoutput$t)[,1] is all 1000 coefficient estimates for intercept (1st term)
+
+# compare variability of coefs
+  #apply the standard deviation to each of the coefficient estimates using the sd() and apply() function.
+  #Each column from each model is sd() and that is the est. standard error for that predictor. 
+data.frame(cbind(round(apply(RRbootoutput$t,2,sd),6),
+                 round(apply(LRbootoutput$t,2,sd),6),
+                 round(apply(ENETbootoutput$t,2,sd),6)),
+           row.names=c("intercept",names(BostonNew)[c(1:12,14)]))
+
+  
+
+
+SE_RR = round(apply((RRbootoutput$t),2,sd),6)
+SE_RR[c(1,10,14)]  
+
+SE_LR = round(apply((LRbootoutput$t),2,sd),6)
+SE_LR[c(1,10,14)] 
+
+
+SE_ENET = round(apply((ENETbootoutput$t),2,sd),6)
+SE_ENET[c(1,10,14)] 
+
+```
+
+
+
+
+
+
