@@ -1,0 +1,157 @@
+---
+title: "week6"
+author: "Josh Jarvey"
+date: "10/6/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+r = seq(-6,6,by=1)
+
+Tukey = (pmax(1-(r/4.685)^2,0))^2
+
+matplot(r, Tukey)
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+ #loading MASS library since it contains the rlm() function.
+library(MASS)
+  #read in the data
+bodyfat = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 6/bodyfat.csv")
+  #fit a Robust lm (rlm) model using the Tukey weights. (this is the psi= psi.bisquare)
+  #tukey's bisquare weights severly downweights high leverage points so they dont influence your regression line too much. 
+fit = rlm(BodyFatBrozek~Weight, data = bodyfat, psi = psi.bisquare)
+  
+summary(fit)
+```
+
+
+
+
+
+```{r}
+  #setting up a iterative weighting procedure using linear weights. 
+
+  #first we need to fit the model using just the normal lm()
+fit = lm(BodyFatBrozek~Weight, data = bodyfat)
+  #we extract the "starting" coefficients
+newcoef = fit$coefficients
+  #we set up an empty vector of "old" coefficients. Since we havent entered the loop yet, this will just be 0's
+oldcoef = rep(0,length(fit$coefficients))
+  #finally, we set our counter variable equal to 0 for the loop counter to control run away convergence
+iter = 0
+  
+  #now we can start our convergence process: we continue the loop until one of two things happens.
+    #break the loop of the iterations goes above 100 - this is a safe guard so its not running away.
+    #break the loop if the difference in coefficients is smaller than 0.0001. This is basically 0.
+    #basically if the model is not getting any different coefficients, then we've hit our "bottom".
+while((abs(oldcoef[1]-newcoef[1])+abs(oldcoef[2]-newcoef[2])) > 0.0001 & iter < 100){
+    #this calculates our linear weights. If the calculated value is greater than 0, then take it, otherwise apply 0.
+  w = pmax(1-abs(fit$residuals)/3,0)
+    #fit the new model using the new weights.
+  fit = lm(BodyFatBrozek~Weight, data = bodyfat, weights = w)
+    #increment the counter by 1
+  iter = iter+1
+    # set the old coefficients to the new coefficients (1st iteration was outside the while-loop, which was non-weighted)
+  oldcoef = newcoef
+    #grab the coefficients from the newly fitted model with current iterations weighted applied
+  newcoef = fit$coefficients
+}
+  #plotting the weights as a function of their index. We can see A LOT of the observations are getting a 0 weight, which is causing them be basically thrown away. 
+matplot(c(1:252),w)
+
+ ##in fact, about 63% of the observations are being thrown away according to this calculation. That's probabily not right. 
+length(which(fit$w==0)) / dim(bodyfat)[1]
+```
+```{r}
+  #create a matrix of autocorrelated values
+n = 100
+Sigmax = matrix(,nr=n, nc=n) # initialize the covariance matrix
+Sigmax[1,1] = 1
+for(i in 2:n){
+    Sigmax[i,i] = 1
+    for(j in 1:(i-1)){
+        Sigmax[i, j] = .9^abs(i-j)
+        Sigmax[j, i] = Sigmax[i, j] # make the covariance matrix 
+                                    # symmetric across the diagonal
+    } #end iter over j
+} # end iter over i
+
+
+```
+
+
+
+```{r}
+set.seed(seed = 15, sample.kind = "Rounding")
+  #create x and y, and model it.
+x = runif(n, 0, 1)
+y = 2*x + 3 + mvrnorm(1, rep(0,n), Sigmax) # generate 1 random vector 
+                                                # of n noise terms
+
+
+m1 = lm(y~x)
+  #diagonistic plots look ok...? No hints of the autocorrelation per the above
+plot(m1)
+```
+
+
+```{r}
+  #calculate the correlation between full data - last obs, vs. full data - first obs. 
+cor(m1$residuals[1:99],m1$residuals[2:100])
+
+  #create and auto correlation plot of the residuals. Using ci.type = "ma" gives a more accurate representation of the blue lines (closer related to that size of dataset)
+acf(m1$residuals, ci.type = "ma")
+
+#we see here that even after spike 0 (which isnt really anything), evidence for autocorrelation goes from lags 1-5. Could prob benefit from some stationary functions, or using the gls feature. 
+
+```
+
+```{r}
+  #if we just straight up plot the residuals, we can see that "sweeping" pattern going on like a roller coaster. This is autocorrelation.
+plot(m1$residuals)
+
+  #complete a durbin watson test for auto correlation. pvalue is basically 0, so this tells me its definitely autocorrelated. 
+library(car)
+durbinWatsonTest(m1)
+
+  #fit a gls() model using the AR1 (with the form ~1 since its "one time unit" apart).
+library(nlme)
+m2 = gls(y ~ x, correlation = corAR1(form = ~1))
+```
+
+```{r}
+  #there really isnt any difference in how close the intercepts between the models got to 3. 
+  #however, there is a big difference in how the coefficient of x got to 2; and the model 2 is the winner (the AR1)
+coef(m1)
+coef(m2)
+
+  #now i "refit" model 1 with the gls() function ( so i can compare it using the AIC() command)
+m1_gls = gls(y~x)
+
+coef(m1)
+coef(m1_gls)
+
+  #AIC in model 2, using the AR1 term, provides a MUCH better AIC than model 1 which didnt account for the auto regressive nature of the residuals. 
+AIC(m1_gls,m2)
+
+```
+
+
+
