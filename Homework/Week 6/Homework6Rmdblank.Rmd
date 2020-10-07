@@ -1,0 +1,420 @@
+---
+title: "Homework 6 R markdown"
+author: "(your name here)"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 4.5
+  pdf_document:
+    fig_height: 4
+    fig_width: 4.5
+  word_document:
+    fig_height: 4
+    fig_width: 4.5
+---
+
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+#### <span style="color:Blue">**Intellectual Property:**</span>  
+These problems are the intellectual property of the instructors and may not be reproduced outside of this course.
+
+#### <span style="color:Crimson">**Due Date:**</span>  
+Tuesday, October 17, 2017 at 11:59 PM 
+
+***  
+***  
+
+##########################################################################
+## Problem 1: Model Crime Rates with Robust Regression
+##########################################################################
+
+In this problem, you will use robust regression to model crime rates in different states (plus Washington, DC).  
+**Data Set**: Load the **crime2005** data set, which is in the **smss** package.
+
+#####################################
+### <span style="color:DarkViolet">Question 1</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">After loading the data **crime2005** data set, use (non-robust) linear regression to model the crime rate per 10,000 people (VI2) as a function of the percentage of the population that live in metropolitan areas (ME) and the percentage of the population that live below the poverty line (PO).  
+Enter your R code below.</span>  
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #load the dataset
+library(smss)
+data("crime2005")
+
+  #fit the regression model
+fit = lm(VI2~ME+PO, data = crime2005)
+
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 2</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Plot the regression diagnostic plots for the model in the previous question. Which states (or other regions) appear to be outliers? Give the names of the states. (It may help to refer to http://www.50states.com/abbreviations.htm.)</span>  
+
+<span style="color:green">**Text Answer**: </span>
+
+
+```{r}
+  #it appears observations 8, 40, 51 are being labeled as outliers
+plot(fit)
+
+  #DE=Delaware, SC=South Carolina, DC=District of Columbia
+crime2005[c(8,40,51),1]
+
+```
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 3</span> **<span style="color:Crimson">(5 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">**Use a** *while* **loop** to perform iteratively reweighted least squares regression with Huber weights.  
+Enter your R code below.</span>  
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #fit the initial model.
+fit = lm(VI2~ME+PO, data = crime2005)
+
+  #extract the "starting" coefficients.
+newcoef = fit$coefficients
+
+  #set up an empty coefficient vector.
+oldcoef = rep(0,length(fit$coefficients))
+
+  #initialize loop counter.
+iter = 0
+  
+  #loop until there are no longer significant changes in coefficient values.
+while(sum(abs(oldcoef-newcoef)) > 0.0001 & iter < 100){
+
+    #calculate MAR constant for huber weights
+  MAR = median(abs(fit$residuals))
+
+    #calculate tuning parameter k for huber weights
+  k = 1.345*MAR/0.6745
+  
+      #calculate the weights using huber method. take whatever is minimum: calculated weight or 1.
+  w = pmin(k/abs(fit$residuals),1)
+
+    #fit the model using the new weights.
+  fit = lm(VI2~ME+PO, data = crime2005, weights = w)
+  
+    #increment the counter by 1.
+  iter = iter+1
+  
+    #set oldcoef to new coef so they can be compared in the next iteration.
+  oldcoef = newcoef
+  
+    #grab the coefficients from the newly fitted model using the calculated weights. 
+  newcoef = fit$coefficients
+}
+
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 4</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Write the equation for the linear model you found in the previous question.</span>  
+
+<span style="color:green">**Text Answer**: </span>
+
+
+y-hat = -40.3926 + 0.6794*ME + 3.2950*PO
+
+
+#####################################
+### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Use $\texttt{rlm()}$ to fit a robust regression model with Tukey’s bisquare weights.  
+Enter your R code below.</span>  
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+library(MASS)
+  #fit a bisquare weights model.
+fitTukey = rlm(VI2~ME+PO, data = crime2005, psi = psi.bisquare)
+
+fitTukey$coefficients
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 6</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Write the equation for the linear model you found in the previous question.</span>  
+
+
+<span style="color:green">**Text Answer**: </span>
+
+y-hat = -31.2925 + 0.6113*ME + 2.8080*PO
+
+#####################################
+### <span style="color:DarkViolet">Question 7</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Write 1-2 sentences comparing the equations of the models with Huber and Tukey’s bisquare weights to the model with equal weights.</span>  
+
+<span style="color:green">**Text Answer**: </span>
+Non-weighted: y-hat = -56.8232 + 0.8155*ME + 4.2600*PO
+Huber Method: y-hat = -40.3926 + 0.6794*ME + 3.2950*PO
+Tukey Method: y-hat = -31.2925 + 0.6113*ME + 2.8080*PO
+
+Both the Huber and Tukey method down weight those variables that are outliers or influential thus allowing the regression to fit more true. Therefore we see the intercepts of the model increase (larger negative to smaller negative) as you move from the non-weighted model, to Huber, and then Tukey respectively. This change in coefficients also applies to the partial slopes of the predictors, where the coefficients decrease further as you move from non-weighted, to Huber, to Tukey. 
+
+                
+#####################################
+### <span style="color:DarkViolet">Question 8</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Make a scatterplot of the weights from the Tukey’s bisquare model (as a function of the index in the data set). For each point with a weight less than 0.8, label the point with the state abbreviation.  
+Enter your R code below.</span>  
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #create a plot of weights per the observations.
+plot(fitTukey$w, ylab = "Weights")
+
+  #find the observations that have less than 0.8 as a weight
+smallweights = which(fitTukey$w < 0.8)
+
+  #add the state labels to the plot for the weights that are considered smallweights. 
+library(car)
+showLabels(1:nrow(crime2005),fitTukey$w, labels = crime2005$STATE, method = smallweights)
+```
+
+
+***
+***  
+
+##########################################################################
+## Problem 2: Account for Correlated Errors in Linear Model
+##########################################################################
+
+In this problem, you will build a linear model for air temperature that accounts for correlated errors.  
+**Data Set**: Download elnino.csv (from D2L), which contains data from 59 weather buoys in the Pacific Ocean during a 2-week period.
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 9</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Read the elnino.csv data into R and remove the rows with missing data.  
+Enter your R code below.</span>  
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #read in the dataset.
+weather = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 6/elnino.csv")
+  #check for missing data
+summary(weather)
+  #remove those rows with missing data.
+weather = na.omit(weather)
+
+```
+
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 10</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">(**Model A**) We would like to build a model to predict air temperature (air.temp) as a function of:  </span>  
+
+
+* zonal winds (zon.winds; west < 0, east > 0),  
+* meridional winds (mer.winds; south < 0, north > 0),  
+* humidity, and  
+* the subsurface ocean temperature (s.s.temp).  
+
+<span style="color:DarkViolet">  Start by fitting an unweighted model using $\texttt{lm()}$.  Plot the residuals vs. the fitted values and the normal Q-Q plot of the residuals.  Go to the *Homework 6: Appropriateness of linear model* discussion (on D2L) and:  
+
+1. Upload your two plots.
+2. Comment on the appropriateness of the linear model.</span>
+
+
+There are a few outlier residuals that are being picked up on in the plot, but they don't appear that extreme in the context of the other residuals and the red spline is relatively a straight horizontal line. Generally, the residuals follow the line in the QQ plot, but it does start to show some deviation away from normality in the tails of the plot. Overall, there's nothing "striking" that would suggest the linear model is not appropriate.
+
+
+<span style="color:green">**Graph and Commentary Answer**  </span>: 
+  (post to discussion board on D2L)
+```{r,echo=FALSE}
+  #fitting the model
+fit = lm(air.temp~zon.winds + mer.winds + humidity + s.s.temp, data = weather)
+  #reviewing diagnostic plots
+plot(fit)
+
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 11</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">(**Model B**) Use $\texttt{gls()}$ to fit a model with uncorrelated errors. Compare the estimated coefficients from this model to those from Model A.  Why does this make sense?</span>  
+
+```{r}
+library(nlme)
+
+fit.gls = gls(air.temp~zon.winds + mer.winds + humidity + s.s.temp, data = weather)
+
+coef(fit)
+coef(fit.gls)
+
+```
+
+
+<span style="color:green">**Text Answer**: </span>
+
+The coefficients from the normal lm() fitted model vs. the gls() fitted model (without any correlation specified) are the same, because the default behavior of gls() is to fit the model just like in lm(). gls() supports the ability to specify structures that might be lurking in the covariance matrix. 
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 12</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Extract the residuals from Model B that correspond to buoy 3 (the first buoy in the data set with complete data for all 14 days). Plot the residuals as a function of the residuals from the previous day.  
+Enter your R code below.</span>  
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #pull the residuals from the gls() module for buoy 3
+buoy3.resid = fit.gls$residuals[which(weather$buoy == "3")]
+  
+  #plot the residuals as a function of "day".
+plot(1:length(buoy3.resid),buoy3.resid, xlab = "Day", ylab = "Residuals", main = "Residuals of buoy 3 over time (from fit.gls model)")
+
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 13</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">A reasonable supposition would be that the air temperature at a particular buoy might be associated with the air temperature on the previous day.  This could induce autocorrelation in the error terms for that buoy.  Does there appear to be autocorrelation within the residuals for buoy 3?  Explain.</span>  
+
+
+<span style="color:green">**Text Answer**: </span>
+
+There does appear to be autocorrelation within the residuals for buoy 3. In reviewing the plot, there is a clear "wavy" pattern in the residuals and each subsequent residual seems to be influenced by the previous. This would make sense because the way weather patterns work, where air temperature does not change every single day to something drastically different (for the most part). 
+
+#####################################
+### <span style="color:DarkViolet">Question 14</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">(**Model C**) Use $\texttt{gls()}$ to fit a model that accounts for the possibility that the error terms at each buoy are correlated with the error terms from the same buoy on the previous day.  (Assume that the error terms at different buoys are independent.)  
+Enter your R code below.</span>  
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #fit a 3rd model using the AR1 correlation argument. 
+  #Note: the form is not ~1, because of the missing data at different buoys at different days. Therefore we must set the time measure. 
+modelC = gls(air.temp~zon.winds + mer.winds + humidity + s.s.temp, data = weather, correlation = corAR1(form = ~day | buoy))
+
+  #check coefficients between models
+coef(fit.gls)
+coef(modelC)
+
+  #compare AIC's against models.
+AIC(fit.gls,modelC)
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 15</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Write 2-4 sentences comparing the equation and appropriateness of Model C to the equation and appropriateness of Model B.
+</span>  
+
+<span style="color:green">**Text Answer**: </span>
+
+After accounting for autocorrelation between the buoy's error terms, this new Model C has a much lower AIC (~378.58) compared to Model B's AIC (~694.11) which did not account for the autocorrelation. Therefore we would select Model C over Model B, as a lower AIC indicates a better model fit. The intercept in Model C almost doubled in value as compared to model B, and the remaining coefficients in Model C are all slightly greater than Model B, with the exception of S.S.temp (which is slightly lower). 
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 16</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">On the basis of AIC, are Models C and B reasonable alternatives?  If not, which model represents a better tradeoff between fit and number of parameters?  Explain.</span>  
+
+
+<span style="color:green">**Text Answer**: </span>
+
+I think Model C is a reasonable model to select in comparison to the other models since it accounts for the autocorrelation within the data. It also has the lowest AIC in comparison, and we know that from the AIC formula it actually "penalizes" scores for having more predictors in the model. 
+
+
+```{r}
+
+summary(fit)
+summary(fit.gls)
+
+summary(modelC)
+
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 17</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Use the regression Model C to estimate the correlation between the noise terms of the temperatures of consecutive days at the same buoy.</span>  
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+
+cor(modelC$residuals,weather$day)
+
+
+#Are we just saying Phi? 
+#    Phi1 
+0.8086711 
+
+
+```
+
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 18</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Estimate the correlation between the noise terms of the temperatures separated by 1 day at the same buoy (for example, Monday and Wednesday).</span>  
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+
+0.8086711^2
+
+```
