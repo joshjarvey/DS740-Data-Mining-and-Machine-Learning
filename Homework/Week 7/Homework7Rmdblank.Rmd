@@ -1,0 +1,336 @@
+---
+title: "Homework 7 R markdown"
+author: "Josh Jarvey"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 4.5
+  pdf_document:
+    fig_height: 4
+    fig_width: 4.5
+  word_document:
+    fig_height: 4
+    fig_width: 4.5
+---
+
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+#trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+#### <span style="color:Blue">**Intellectual Property:**</span>  
+These problems are the intellectual property of the instructors and may not be reproduced outside of this course.
+
+#### <span style="color:Crimson">**Due Date:**</span>  
+
+
+***  
+***  
+
+##########################################################################
+## Problem 1: Analyze Variables with Decision Trees
+##########################################################################
+
+In this problem, you will use decision trees to analyze the variables associated with which brand of orange juice customers choose to purchase.
+
+Data Set: Load the OJ data set, which is in the ISLR package.
+
+#####################################
+### Question 1 (1 point) 
+
+After loading the OJ data set, set the random seed equal to 7, using:
+   set.seed(7, sample.kind = "Rounding")
+and take a random sample of 800 rows of the data. This will be the training data set; the remaining observations will be the validation set.
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #load the data set.
+library(ISLR)
+data("OJ")
+
+  #set seed for reproducability. 
+set.seed(7, sample.kind = "Rounding")
+
+  #using a vector of size 1:1070, select 800 numbers without replacement. These are our indices that we'll use for the OJ set when training our model. We can use OJ "-train" when testing our model.
+train = sample(1:nrow(OJ),800,replace = F)
+```
+
+
+#####################################
+### Question 2 (2 points) 
+
+Fit a tree to the training data, using Purchase as the response variable and all other variables as predictors.  Which variables were used in constructing the tree?  Select all that apply.
+
+<span style="color:green">**Multiple SELECT Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+	
+LoyalCH <<--- correct
+
+	
+Store
+
+	
+PriceDiff <<--- correct
+
+	
+SalePriceMM
+
+	
+PriceCH
+
+
+#####################################
+### Question 3 (2 points) 
+
+What is the error rate on the training set?   <<---  0.1636
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+library(tree)
+  #fit the tree
+fitTree = tree(Purchase~.,data = OJ)
+  #find the misclassification rate
+summary(fitTree)
+```
+
+
+***
+
+#####################################
+### Question 4 (4 points)
+
+Plot the decision tree with category labels.  Submit your plot to the Homework 7: Decision tree discussion board.  With your plot, write 3-5 sentences describing the model.
+
+[You don't need to enter anything here.  Make sure you submit your plot and description to the discussion board.]
+
+<span style="color:green">**Graph Answer**  </span>: 
+  (post to discussion board on D2L)
+```{r,echo=FALSE}
+plot(fitTree)
+text(fitTree,pretty = 0)
+
+```
+
+Based on the plot, it appears that brand loyalty is one of the biggest deciding factors when choosing between Citrus Hill or Minute Maid orange juice. In fact, the "Loyalty" variable is the root node (most important), and its split is approximately "half way down the middle", where if you are loyal to Minute Maid (indicated by <0.50), then you're more likely to purchase MM, otherwise if you're more loyal to Citrus Hill (>0.50), you're more likely to purchase CH. The only other deciding factor in this deals with the price difference between MM and CH. If you're loyal to CH is measured between 0.27 and 0.50, and MM is 0.05$ more expensive, then CH is purchased. Whereas if your loyal to CH is measured between 0.50 and 0.76, and MM is 0.16$ cheaper, you will buy MM.
+
+
+#####################################
+### Question 5 (2 points)
+
+Compute the confusion matrix for the validation set.  What is the validation set error rate?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+```
+
+
+
+
+#####################################
+### Question 6 (2 points)
+
+Use 10-fold cross-validation on the training data to choose the number of leaves that minimizes the classification error rate.  What are the optimal numbers of leaves? Select all that apply.
+
+<span style="color:green">**Multiple SELECT Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+1
+	
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+
+#####################################
+### Question 7 (1 point) 
+
+Create a pruned tree with 5 leaves.  What is the error rate of the pruned tree on the validation set?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+```
+
+
+***
+
+##########################################################################
+## Problem 2: Use Boosting to Predict Salaries
+##########################################################################
+
+In this problem, you will use boosting to predict the salaries of baseball players.
+
+Data Set: Load the Hitters data set; it's in the ISLR package.
+
+#####################################
+### Question 8 (2 points) 
+
+After loading the Hitters data set, remove the observations with unknown salary, and then log-transform the salaries.  
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+```
+
+#####################################
+### Question 9 (1 point) 
+
+Perform boosting to predict log(Salary) in terms of the other variables in the data set (excluding Salary).  Use:
+
+* 5000 trees,  
+* a shrinkage parameter of .001, and  
+* an interaction depth of 4.  
+
+Which of the variables is most important for predicting log(Salary) in this model?
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+
+	
+CAtBat
+
+HmRun
+
+CRuns
+
+Years
+
+#####################################
+### Question 10 (4 points) 
+
+Set the random seed to 7, using:
+   set.seed(7, sample.kind = "Rounding") 
+and perform 10-fold cross-validation to compare boosting (using the same parameters as in the previous question) to multiple linear regression. 
+
+Enter your R code below.
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+```
+
+
+***
+
+What MSE do you find for each method?
+
+#####################################
+### Question 11 (1 point) 
+
+Boosting:
+
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+```
+
+
+#####################################
+### Question 12 (1 point) 
+
+Linear regression:
+
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+```
+
+
+#####################################
+### Question 13 (1 point) 
+
+Which model has the lower cross-validation MSE for this data set?
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+
+Boosting
+
+Linear regression
+
+
+***
+
+
+##########################################################################
+## Problem  3: Analyzing Salaries Through Bagging and Random Forests
+##########################################################################
+
+In this problem, you will continue your analysis of the salaries of baseball players using bagging and random forests.
+
+Data Set: Continue to use the Hitters data set.
+
+#####################################
+### Question 14 (2 points)
+
+Use $\texttt{?Hitters}$ to view what each variable in the data set represents.  Examine some preliminary graphs and summaries of the data.  If we want to use decision trees to analyze this data set, why are random forests a good idea? Explain in 2-4 sentences.
+
+
+<span style="color:green">**Text Answer**: </span>
+
+
+#####################################
+### Question 15 (1 point)
+
+Perform bagging to predict log(Salary) in terms of the other variables in the data set (excluding Salary).  
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+```
+
+#####################################
+### Question 16 (1 point) 
+
+Examining the bagged model you created in the previous question, how does the proportion of variation explained by the bagged model compare with the proportion of variation explained by multiple linear regression?
+
+
+<span style="color:green">**Text Answer**: </span>
+
+
+#####################################
+### Question 17 (1 point) 
+Which variable is more important for predicting log(Salary) in the bagged model?
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+	
+CRBI
+
+Years
+
+#####################################
+### Question 18 (2 points)
+
+Set the random seed to 7 again, using:
+   set.seed(7, sample.kind = "Rounding")
+and use 10-fold cross-validation to compare bagging with random forests using 6 variables.  Write 1-2 sentences comparing the MSE of each of these methods to the MSE of boosting found in Problem 2.
+
+
+<span style="color:green">**Text Answer**: </span>
+

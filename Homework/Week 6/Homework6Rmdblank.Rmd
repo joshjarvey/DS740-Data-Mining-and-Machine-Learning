@@ -323,7 +323,7 @@ plot(1:length(buoy3.resid),buoy3.resid, xlab = "Day", ylab = "Residuals", main =
 
 <span style="color:green">**Text Answer**: </span>
 
-There does appear to be autocorrelation within the residuals for buoy 3. In reviewing the plot, there is a clear "wavy" pattern in the residuals and each subsequent residual seems to be influenced by the previous. This would make sense because the way weather patterns work, where air temperature does not change every single day to something drastically different (for the most part). 
+There does appear to be autocorrelation within the residuals for buoy 3. In reviewing the plot, there is a clear "wavy" pattern in the residuals and each subsequent residual seems to be influenced by the previous. This would make sense because the way weather patterns work, where air temperature does not change every single day to something drastically different (for the most part), therefore it's most likely dependent from one day to the next.
 
 #####################################
 ### <span style="color:DarkViolet">Question 14</span> **<span style="color:Crimson">(3 points)</span>**:

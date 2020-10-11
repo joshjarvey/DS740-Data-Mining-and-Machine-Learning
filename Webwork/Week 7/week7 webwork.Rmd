@@ -1,0 +1,113 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "10/10/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+  #read in the dataset
+survival = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 7/CancerSurvival01.csv")
+  #change the response variable to a factor
+survival$Survival01 = as.factor(survival$Survival01)
+
+  #load the tree library
+library(tree)
+  #fit the tree model to the data
+fit = tree(Survival01~.,data = survival)
+  #plotting the tree and showing labels
+plot(fit)
+text(fit,pretty = 0)
+  #checking summary to see misclassification rate (overall, full data).
+summary(fit)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+fit
+```
+
+```{r}
+  #set seed for reproducability
+set.seed(400, sample.kind = "Rounding")
+
+  #completing cross-validation on my fitted tree. We use the pruning function (FUN = prune.misclass) since this is a classification problem.
+cvfit = cv.tree(fit, FUN = prune.misclass)
+
+  #plot the resulting process, we notice that size 6 seems to be the best tree. 
+plot(cvfit)
+
+  #whats the minimum deviance from the CV?
+min(cvfit$dev)
+
+  #what index does 80 live at?
+which(cvfit$dev == 80)
+
+  #for index number 3 (which has the minimum deviance), what is the size of this tree? We can see this is 3 leaves.
+cvfit$size[which(cvfit$dev == 80)]
+
+  #now that we've found the best number of leaves to use (3), we will prune the tree using the prune.misclass() function
+  #we pass it the tree, and best = 3 for number of leaves.
+  #note: we could use prune.tree() if this was regression.
+prunedFit = prune.misclass(fit, best = 3)
+plot(prunedFit)
+text(prunedFit,pretty = 0)
+```
+
+
+```{r}
+library(gbm)
+
+set.seed(400, sample.kind = "Rounding")
+survival$Survival01 = as.integer(survival$Survival01)
+
+  #fit a boosted tree model
+  #5000 trees, lambda (learning rate) = 0.001, interaction = 2 (so it can split at least twice), and distribution is "bernoulli" since it is a classification problem. Would be "gaussian" if regression problem. 
+boostTree = gbm(Survival01~., data = survival, n.trees = 5000, shrinkage = 0.001, distribution = "bernoulli",interaction.depth = 2)
+
+
+summary(boostTree)
+
+plot.gbm(boostTree, i="Nodes")
+```
+
+```{r}
+  #load the randomforest library to bag a random forest
+library(randomForest)
+
+set.seed(400, sample.kind = "Rounding")
+
+  #create a bagged random forest. mtry=3, which is the number of remaining predictor variables. importance = true so we can check the most important variable[s] later.
+baggedTree = randomForest(Survival01~.,data = survival, mtry=3, importance=TRUE)
+  #check confusion matrix and Out of bag misclass rate (misclass for each tree on those samples not used)
+baggedTree
+  #plot the model to check when error rate begins to level off.
+plot(baggedTree)
+legend("topright", colnames(baggedTree$err.rate),col=1:3,lty=1:3)
+
+  #check the importance of each predictor. 
+    #mean() decrease accuracy shows how well it does with improving the accuracy
+    #mean() decrease gini shows how well it does with reducing the gini index, which helps with node purity.
+importance(baggedTree)
+  #plot the importance of each predictor.
+varImpPlot(baggedTree)
+
+```
+
+
+
+
+
