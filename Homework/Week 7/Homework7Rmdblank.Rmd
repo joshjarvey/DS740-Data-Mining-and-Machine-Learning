@@ -83,7 +83,7 @@ Store
 PriceDiff <<--- correct
 
 	
-SalePriceMM
+SalePriceMM <<--- correct
 
 	
 PriceCH
@@ -92,14 +92,14 @@ PriceCH
 #####################################
 ### Question 3 (2 points) 
 
-What is the error rate on the training set?   <<---  0.1636
+What is the error rate on the training set?   <<---  0.1788
 
 <span style="color:green">**Numeric Answer**  </span> 
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 ```{r,echo=FALSE}
 library(tree)
-  #fit the tree
-fitTree = tree(Purchase~.,data = OJ)
+  #fit the tree, using train data only.
+fitTree = tree(Purchase~.,data = OJ[train,])
   #find the misclassification rate
 summary(fitTree)
 ```
@@ -122,7 +122,7 @@ text(fitTree,pretty = 0)
 
 ```
 
-Based on the plot, it appears that brand loyalty is one of the biggest deciding factors when choosing between Citrus Hill or Minute Maid orange juice. In fact, the "Loyalty" variable is the root node (most important), and its split is approximately "half way down the middle", where if you are loyal to Minute Maid (indicated by <0.50), then you're more likely to purchase MM, otherwise if you're more loyal to Citrus Hill (>0.50), you're more likely to purchase CH. The only other deciding factor in this deals with the price difference between MM and CH. If you're loyal to CH is measured between 0.27 and 0.50, and MM is 0.05$ more expensive, then CH is purchased. Whereas if your loyal to CH is measured between 0.50 and 0.76, and MM is 0.16$ cheaper, you will buy MM.
+Based on the plot, it appears that brand loyalty is one of the biggest deciding factors when choosing between Citrus Hill or Minute Maid orange juice. In fact, the "Loyalty" variable is the root node (most important), and its split is approximately "half way down the middle", where if you are loyal to Minute Maid (indicated by <~0.48), then you're more likely to purchase MM, otherwise if you're more loyal to Citrus Hill (>~0.48), you're more likely to purchase CH. The only other deciding factor in this deals with the price difference between MM and CH. If you're loyal to CH is measured >~0.48 but <~0.76, and MM is 0.16$ cheaper, then MM is purchased. Seems like MM fans are loyal, whereas so are Citrus Hill (unless the price is right).
 
 
 #####################################
@@ -133,15 +133,30 @@ Compute the confusion matrix for the validation set.  What is the validation set
 <span style="color:green">**Numeric Answer**  </span> 
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 ```{r,echo=FALSE}
+  #complete the prediction using the test set.
+predprob = predict(fitTree,OJ[-train,], type = "class")
+  #create a confusion matrix of the test set.
+table(predprob,OJ$Purchase[-train])
+
+(18+21)/(18+21+147+84)
 ```
 
-
+answer: 0.1444444
 
 
 #####################################
 ### Question 6 (2 points)
 
 Use 10-fold cross-validation on the training data to choose the number of leaves that minimizes the classification error rate.  What are the optimal numbers of leaves? Select all that apply.
+
+```{r,echo=FALSE}
+  #complete CV10 on the tree model
+cvTreeFit = cv.tree(fitTree, FUN = prune.misclass)
+  #review the results - it appears leaves 8 and 5 provide the lowest CV10 score. 
+cvTreeFit
+
+```
+
 
 <span style="color:green">**Multiple SELECT Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
@@ -153,13 +168,13 @@ Use 10-fold cross-validation on the training data to choose the number of leaves
 
 4
 
-5
+5 <<-- correct
 
 6
 
 7
 
-8
+8 <<---- correct
 
 
 #####################################
@@ -169,8 +184,15 @@ Create a pruned tree with 5 leaves.  What is the error rate of the pruned tree o
 
 <span style="color:green">**Numeric Answer**  </span> 
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
 ```{r,echo=FALSE}
+  #create a tree within the prune.misclass() function. This new tree uses "test" data, and keeps it to 5 best leaves. 
+prunedFitTree = prune.misclass(tree(Purchase~.,data = OJ[-train,]), best = 5)
+  #check misclassification error. 
+summary(prunedFitTree)
 ```
+
+answer: 0.1148
 
 
 ***
@@ -192,6 +214,12 @@ Enter your R code below.
 
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
+library(ISLR)
+data("Hitters")
+  #remove NA's
+Hitters = na.omit(Hitters)
+  #add a log() transformed version of the salary 
+Hitters$logSalary = log(Hitters$Salary)
 ```
 
 #####################################
@@ -203,13 +231,22 @@ Perform boosting to predict log(Salary) in terms of the other variables in the d
 * a shrinkage parameter of .001, and  
 * an interaction depth of 4.  
 
+```{r}
+library(gbm)
+
+boostFit = gbm(logSalary~.-Salary, data = Hitters, n.trees = 5000, shrinkage = 0.001, interaction.depth = 4, distribution = "gaussian")
+
+summary(boostFit)
+
+```
+
 Which of the variables is most important for predicting log(Salary) in this model?
 
 <span style="color:green">**Multiple choice Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
 
 	
-CAtBat
+CAtBat  <<-- correct.
 
 HmRun
 
@@ -229,6 +266,45 @@ Enter your R code below.
 
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
+  #set seed for reproduceability
+set.seed(7, sample.kind = "Rounding") 
+  #count the sample size.
+n = nrow(Hitters)
+  #set the number of folds.
+k = 10
+  #create groups of 1-10 for the entire dataset
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
+
+  #randomly shuffle the 1-10 dataset.
+cvgroups = sample(groups,n)
+
+  #creating an empty vector to store predicted values.
+allpredictedCVLM = rep(0,n)
+allpredictedCVBoost = rep(0,n)
+
+
+for (i in 1:k){
+    #setting test set equal to the current i'th fold.
+  test = (cvgroups == i)
+    #fit the linear model on the training data
+  fitLM = lm(logSalary~.-Salary, data = Hitters,subset=!test)
+    #use the test set to generate predictions.
+  allpredictedCVLM[test] = predict.lm(fitLM,Hitters[test,])
+    
+    #fit the boosted model on the training data.
+  boostFit = gbm(logSalary~.-Salary, data = Hitters[!test,], 
+                 n.trees = 5000, 
+                 shrinkage = 0.001, 
+                 interaction.depth = 4, 
+                 distribution = "gaussian")
+  
+    #use the test set to generate predictions. 
+  allpredictedCVBoost[test] = predict(boostFit, newdata = Hitters[test,],n.trees = 5000)
+}
+
+  #calculate MSE for both models.
+sum((allpredictedCVLM-Hitters$logSalary)^2)/n
+sum((allpredictedCVBoost-Hitters$logSalary)^2)/n
 ```
 
 
@@ -239,7 +315,7 @@ What MSE do you find for each method?
 #####################################
 ### Question 11 (1 point) 
 
-Boosting:
+Boosting:0.4319816
 
 
 <span style="color:green">**Numeric Answer**  </span> 
@@ -251,7 +327,7 @@ Boosting:
 #####################################
 ### Question 12 (1 point) 
 
-Linear regression:
+Linear regression: 0.2213834
 
 
 <span style="color:green">**Numeric Answer**  </span> 
@@ -268,7 +344,7 @@ Which model has the lower cross-validation MSE for this data set?
 <span style="color:green">**Multiple choice Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
 
-Boosting
+Boosting <<---- correct
 
 Linear regression
 
@@ -290,6 +366,18 @@ Data Set: Continue to use the Hitters data set.
 Use $\texttt{?Hitters}$ to view what each variable in the data set represents.  Examine some preliminary graphs and summaries of the data.  If we want to use decision trees to analyze this data set, why are random forests a good idea? Explain in 2-4 sentences.
 
 
+When we take a look at the dataset, we notice a high degree of correlation between predictor variables, thus leading to issues of multicollinearity. Certain pairs of variables may dominate in the model, which will cause high variance and may cause the issue of overfitting. Random forest attempts to solve this by not only pick random observations during its model fitting process (bagging), but also selecting the predictors to use at random. This creates many trees with different predictors at its root node, thus making a more robust model against collinearity.  
+
+
+```{r}
+summary(Hitters)
+
+library(car)
+
+vif(fitLM)
+```
+
+
 <span style="color:green">**Text Answer**: </span>
 
 
@@ -302,6 +390,16 @@ Enter your R code below.
 
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
+library(randomForest)
+
+
+hittersBagging = randomForest(logSalary~.-Salary, data = Hitters,
+                              mtry = 19, importance=TRUE)
+
+
+fitlmfull = lm(formula = logSalary ~ . - Salary, data = Hitters)
+hittersBagging
+summary(fitlmfull)
 ```
 
 #####################################
@@ -310,6 +408,8 @@ Enter your R code below.
 Examining the bagged model you created in the previous question, how does the proportion of variation explained by the bagged model compare with the proportion of variation explained by multiple linear regression?
 
 
+The proportion of variation explained by the bagged model (76.03%) is much greater than that of the normal linear model (52.40%). Therefore it appears to be the better model. 
+
 <span style="color:green">**Text Answer**: </span>
 
 
@@ -317,10 +417,18 @@ Examining the bagged model you created in the previous question, how does the pr
 ### Question 17 (1 point) 
 Which variable is more important for predicting log(Salary) in the bagged model?
 
+```{r}
+importance(hittersBagging)
+varImpPlot(hittersBagging)
+
+
+```
+
+
 <span style="color:green">**Multiple choice Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
 	
-CRBI
+CRBI <--- correct???
 
 Years
 
@@ -332,5 +440,49 @@ Set the random seed to 7 again, using:
 and use 10-fold cross-validation to compare bagging with random forests using 6 variables.  Write 1-2 sentences comparing the MSE of each of these methods to the MSE of boosting found in Problem 2.
 
 
+Random Forest bagging = ~0.0326
+Boosting = ~0.2213834
+
+The CV10 error for the random forest is much less (~0.0326) compared to the CV10 error from the boosting process (~0.2213). This is due to the fact that there is collinearity between variables within the dataset, which the random forest is better equipped to handle being that it selects a subset of random predictors during its tree building process.  
+
 <span style="color:green">**Text Answer**: </span>
+
+
+```{r}
+  #set seed for reproduceability
+set.seed(7, sample.kind = "Rounding") 
+  #count the sample size.
+n = nrow(Hitters)
+  #set the number of folds.
+k = 10
+  #create groups of 1-10 for the entire dataset
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
+
+  #randomly shuffle the 1-10 dataset.
+cvgroups = sample(groups,n)
+
+  #creating an empty vector to store predicted values.
+allpredictedCVRF = rep(0,n)
+
+
+for (i in 1:k){
+    #setting test set equal to the current i'th fold.
+  test = (cvgroups == i)
+    #fit the random forest to the data. We use 6 variables for each tree built in the random forest, because P/3 is a good rule of thumb for regression problems. 
+  hittersBagging6 = randomForest(logSalary~.-Salary,data = Hitters, mtry = 6, importance=TRUE)
+
+    #use the test set to generate predictions. 
+  allpredictedCVRF[test] = predict(hittersBagging6, newdata = Hitters[test,])
+}
+
+  #calculate MSE for both models. = ~0.0326
+sum((allpredictedCVRF-Hitters$logSalary)^2)/n
+
+
+```
+
+
+
+
+
 
