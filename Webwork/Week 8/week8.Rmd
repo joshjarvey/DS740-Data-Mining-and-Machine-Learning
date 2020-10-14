@@ -1,0 +1,877 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "10/12/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+######################################
+## data prep / model specifications ##
+######################################
+
+      #reading in the data.
+    Trees = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 8/Trees.csv")
+      #evaluating penalized regression models.
+    library(glmnet)
+      #outer cv folds is going to be 5.
+    ncv = 5
+      #setting various lambda values to try.
+    lambdalist = exp((-1000:500)/100)
+      #setting various alpha values to try for penalized regressions. 
+    alphalist = c(0,.1,.2,.4,.6,.8,.9,1)
+      #setting seed for reproducibility
+    set.seed(8, sample.kind = "Rounding")
+    
+#################################
+## Start model-fitting process ##
+################################# 
+    
+      #setting my x variables as a matrix
+    x.in = model.matrix(Volume~.,data=Trees)[,-c(1,2)]
+      #setting my y variable as a vector
+    y.in = Trees[,2]
+      #calculating the sample size n. 31 values.
+    n.in = dim(x.in)[1]
+      
+      #if the number of samples divides evenly by the number of folds, then replicate 1:folds however many times that it equally divides.
+      #if doesnt equally divide? Then do the same as above, however the remainder is tacked on at the end. 
+    if ((n.in%%ncv) == 0) {
+        groups.in = rep(1:ncv,floor(n.in/ncv))
+    } else {
+          groups.in = c(rep(1:ncv,floor(n.in/ncv)),(1:(n.in%%ncv)))
+    }
+
+      #randomize the 31 sample indices
+    cvgroups.in = sample(groups.in,n.in)
+
+      #create empty vectors to store results.
+    alllambdabest = rep(NA,8)
+    allcv5best = rep(NA,8)
+      
+    for (m in 1:8) {
+        #since there are 8 alpha's we are trying, we have 8 loops where m is the alpha value being used from the list above
+        #perform a penalized regression using Leave-one-out CV, and multiple lambdas. 
+        #ncv.in = ????????????????????
+        #foldid = the randomized indices from the sampling process above. 
+      cvfit.in = cv.glmnet(x.in, y.in, lambda=lambdalist, alpha = alphalist[m], nfolds=ncv.in, foldid=cvgroups.in)
+
+        #now the model is fit, lets grab the best cv. 
+        #reference current model's cv scores, sort them in order from lowest to highest, and grab the first one
+      allcv5best[m] = cvfit.in$cvm[order(cvfit.in$cvm)[1]]
+        #same thing with best lambda - sort and grab the first one.
+      alllambdabest[m] = cvfit.in$lambda[order(cvfit.in$cvm)[1]]
+    }
+    
+      #now that we have all the penalized model's best cv scores, find the model that has the lowest (really is dependent upon alpha here.)
+    whichmodel = order(allcv5best)[1]
+      #for the model that was selected with lowest CV out of all 8, what is the Alpha value?
+    bestalpha = alphalist[whichmodel]
+      #for the model that was selected with lowest CV out of all 8, what is the Lambda value?
+    bestlambda = alllambdabest[whichmodel]
+    
+    
+      #finally, lets refit the glmnet model using the best alpha value.Not CV this time, since we already identified the best model.
+    bestmodel = glmnet(x.in, y.in, alpha = bestalpha,lambda=lambdalist)
+    
+##################################
+## Finish model-fitting process ##
+################################## 
+
+coef(bestmodel, s= bestlambda)   
+    
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+  #read in the dataset
+trees = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 8/Trees.csv")
+
+  #count number of samples
+n = nrow(trees)
+
+library(glmnet) 
+#   alphalist = c(0,.1,.2,.4,.6,.8,.9,1)
+
+  #consider a list of RR models with these lambda values
+lambdalistRR = exp((-1000:500)/100)
+  #consider a list of ENET models with these lambda values
+lambdalistENET0.1 = exp((-1000:500)/100)
+  #consider a list of ENET models with these lambda values
+lambdalistENET0.2 = exp((-1000:500)/100)
+  #consider a list of ENET models with these lambda values
+lambdalistENET0.4 = exp((-1000:500)/100)
+  #consider a list of ENET models with these lambda values
+lambdalistENET0.6 = exp((-1000:500)/100)
+  #consider a list of ENET models with these lambda values
+lambdalistENET0.8 = exp((-1000:500)/100)
+  #consider a list of LASSO models with these lambda values
+lambdalistLASSO = exp((-1000:500)/100)
+
+  #count the number of models from each RR, ENETs, and LASSO
+nRRmodels = length(lambdalistRR)
+nENET0.1models = length(lambdalistENET0.1)
+nENET0.2models = length(lambdalistENET0.2)
+nENET0.4models = length(lambdalistENET0.4)
+nENET0.6models = length(lambdalistENET0.6)
+nENET0.8models = length(lambdalistENET0.8)
+nLASSOmodels = length(lambdalistLASSO)
+
+  #sum up the total number of models to we'll be iterating through
+nmodels = nRRmodels+
+          nENET0.1models+
+          nENET0.2models+
+          nENET0.4models+
+          nENET0.6models+
+          nENET0.8models+
+          nLASSOmodels
+
+
+###################################################################
+##### Double cross-validation for modeling-process assessment #####				 
+###################################################################
+
+
+#############################################
+##### General prep for outer CV process #####
+#############################################
+
+  #select the full dataset into a variables
+fulldata.out = trees
+  #set the number of Outer folds for our 2x CV.
+k.out = 5
+  #count the number of samples in the full dataset.
+n.out = nrow(fulldata.out)
+  #setting up the list of indices for CV groups based on the dataset. 
+  #this first line replicates 1:number of folds, an even amount of times. 
+groups.out = c(rep(1:k.out,floor(n.out/k.out)))
+  #however, that might not always work where the data set is even, and if so, append the "remainder" to the indice group. 
+if(floor(n.out/k.out) != (n.out/k.out)){
+  groups.out = c(groups.out, 1:(n.out%%k.out))
+}
+
+  #set seed for reproducability
+set.seed(8, sample.kind = "Rounding")
+  #randomize the indices using sample()
+cvgroups.out = sample(groups.out,n.out)
+
+  #set up storage for predicted values from the double-cross-validation
+allpredictedCV.out = rep(NA,n.out)
+  #set up storage to see what models are "best" on the inner loops
+allbestmodels = rep(NA,k.out)
+
+####################################
+###   Begin double-CV process    ###
+####################################
+for (j in 1:k.out){ 
+
+  ################################################################################
+  ##                    ...Prep for OUTER CV process...                         ##
+  ## (splitting the full dataset into a train/test split for current iteration) ##
+  ##        (j'th training split will get passed into inner CV process)         ##
+  ################################################################################
+    #lets find the indices of the current outer fold's iteration. So if j=1, then find where all the 1's are in the randomized index set
+  groupj.out = (cvgroups.out == j)
+
+    #using this vector as described above, select everything else that's NOT in current fold - this is our "training" data.
+  traindata.out = trees[!groupj.out,]
+    #using this vector as described above, select ONLY the current fold indices - this is our "test" data
+  validdata.out = trees[groupj.out,]
+  
+  
+    #from the training data set, we can create the matrix of x's for training
+  trainx.out = model.matrix(Volume~.,data=traindata.out)[,-c(1,2)]
+    #from the testing data set, we can create the matrix of x's for testing
+  validx.out = model.matrix(Volume~.,data=validdata.out)[,-c(1,2)]
+    #from the training data set, we can create the vector of y's for training
+  trainy.out = traindata.out[,2]
+    #from the testing data set, we can create the vector of y's for testing
+  validy.out = validdata.out[,2]
+  
+  ####################################
+  ### pipe current training data   ###
+  ####################################
+  ########	:	:	:	:	:	:	:  ###########
+  
+    #now that we've split up our outer CV10 data, we can pass in the current iterations "training" dataset
+    #if this is iteration j=1, then traindata.out is all of the data from folds 9-10. etc.
+  fulldata.in = traindata.out
+  
+  ########	:	:	:	:	:	:	:  ###########
+  ####################################
+  ####  start inner CV process    ####
+  ####################################
+  
+      ################################################################################
+      ##                    ...Prep for INNER CV process...                         ##
+      ## (splitting piped in data set (train from outer) into train/test split)     ##
+      ################################################################################
+  
+    #number folds and groups for (inner) cross-validation for model-selection
+  k.in = 5   
+    #set sample size of the "inner" dataset.
+  n.in = nrow(fulldata.in)
+    #set the indices of the inner groups 
+  groups.in = c(rep(1:k.in,floor(n.in/k.in))) 
+    #if the groups do not divide evenly, then append the remainder of indices onto the vector
+  if(floor(n.in/k.in) != (n.in/k.in)){
+    groups.in = c(groups.in, 1:(n.in%%k.in))  
+  }
+    #now we must randomize the indices of this inner training set.
+  cvgroups.in = sample(groups.in,n.in)
+    #place-holder for results of CV values from each model. There are 30 models, so 30 results
+    #note: this will get replaced 10x times for each outer CV loop.
+  allmodelCV.in = rep(NA,nmodels)  #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<???
+
+
+     #######################################
+     #### inner CV for penalized models  ###
+     #######################################
+    #create the x's of this inner dataset
+  x.in = model.matrix(Volume~.,data=fulldata.in)[,-c(1,2)]
+    #create the y's of this inner dataset.
+  y.in = fulldata.in[,2]
+    
+    #RR cross-validation - uses internal cross-validation function
+  cvRRglm.in = cv.glmnet(x.in, y.in, lambda=lambdalistRR, alpha = 0, nfolds=k.in, foldid=cvgroups.in)
+      #ENET .1 cross-validation - uses internal cross-validation function
+  cvENET01glm.in = cv.glmnet(x.in, y.in, lambda=lambdalistENET0.1, alpha = 0.1, nfolds=k.in, foldid=cvgroups.in)
+      #ENET .2 cross-validation - uses internal cross-validation function
+  cvENET02glm.in = cv.glmnet(x.in, y.in, lambda=lambdalistENET0.2, alpha = 0.2, nfolds=k.in, foldid=cvgroups.in)
+      #ENET .4 cross-validation - uses internal cross-validation function
+  cvENET04glm.in = cv.glmnet(x.in, y.in, lambda=lambdalistENET0.4, alpha = 0.4, nfolds=k.in, foldid=cvgroups.in)
+      #ENET .6 cross-validation - uses internal cross-validation function
+  cvENET06glm.in = cv.glmnet(x.in, y.in, lambda=lambdalistENET0.6, alpha = 0.6, nfolds=k.in, foldid=cvgroups.in)
+      #ENET .8 cross-validation - uses internal cross-validation function
+  cvENET08glm.in = cv.glmnet(x.in, y.in, lambda=lambdalistENET0.8, alpha = 0.8, nfolds=k.in, foldid=cvgroups.in)
+    #LASSO cross-validation - uses internal cross-validation function
+  cvLASSOglm.in = cv.glmnet(x.in, y.in, lambda=lambdalistLASSO, alpha = 1, nfolds=k.in, foldid=cvgroups.in)
+  
+  
+    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)] = cvRRglm.in$cvm[order(cvRRglm.in$lambda)]
+    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models] = cvENET01glm.in$cvm[order(cvENET01glm.in$lambda)]
+    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models+nENET0.2models] = cvENET02glm.in$cvm[order(cvENET02glm.in$lambda)]
+    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models+nENET0.2models+nENET0.4models] =       cvENET04glm.in$cvm[order(cvENET04glm.in$lambda)]
+    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models] = cvENET06glm.in$cvm[order(cvENET06glm.in$lambda)]  
+      #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models+nENET0.8models] =       cvENET08glm.in$cvm[order(cvENET08glm.in$lambda)]
+      #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
+  allmodelCV.in[(1:nRRmodels)+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models+nENET0.8models+nLASSOmodels] =    cvLASSOglm.in$cvm[order(cvLASSOglm.in$lambda)]  
+  
+     ############################################
+     ## End model fitting inner CV calculation ##
+     ############################################  
+  
+  #######################################################################
+  ##                          identify best model                      ##
+  ## (set it to bestmodel, and set best hyper parameters if available) ##
+  #######################################################################  
+  
+      #now that we've fit all the models, pick the best one.
+  bestmodel.in = order(allmodelCV.in)[1]
+
+  ### finally, fit the best model to the full (available. i.e. outer CV's training set) data. 
+
+  if (bestmodel.in <= nRRmodels) {  # then best is one of RR models
+    bestfit = glmnet(x.in, y.in, alpha = 0,lambda=lambdalistRR)  # fit the model across possible lambda
+    bestlambdaRR = (lambdalistRR)[bestmodel.in]
+  
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models) {  # then best is one of ENET 0.1 models
+    bestfit = glmnet(x.in, y.in, alpha = 0.1,lambda=lambdalistENET0.1)  # fit the model across possible lambda
+    bestlambdaENET01 = (lambdalistENET0.1)[bestmodel.in-nRRmodels]
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models) {  # then best is one of ENET 0.2 models
+    bestfit = glmnet(x.in, y.in, alpha = 0.2,lambda=lambdalistENET0.2)  # fit the model across possible lambda
+    bestlambdaENET02 = (lambdalistENET0.2)[bestmodel.in-nRRmodels-nENET0.1models]
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models) {
+    bestfit = glmnet(x.in, y.in, alpha = 0.4,lambda=lambdalistENET0.4)  # fit the model across possible lambda
+    bestlambdaENET04 = (lambdalistENET0.4)[bestmodel.in-nRRmodels-nENET0.1models-nENET0.2models]
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models) {
+    bestfit = glmnet(x.in, y.in, alpha = 0.6,lambda=lambdalistENET0.6)  # fit the model across possible lambda
+    bestlambdaENET06 = (lambdalistENET0.6)[bestmodel.in-nRRmodels-nENET0.1models-nENET0.2models-nENET0.4models]
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models+nENET0.8models) {
+    bestfit = glmnet(x.in, y.in, alpha = 0.8,lambda=lambdalistENET0.8)  # fit the model across possible lambda
+    bestlambdaENET08 = (lambdalistENET0.8)[bestmodel.in-nRRmodels-nENET0.1models-nENET0.2models-nENET0.4models-nENET0.6models]
+    
+  } else {  # then best is one of LASSO models
+    bestfit = glmnet(x.in, y.in, alpha = 1,lambda=lambdalistLASSO)  # fit the model across possible lambda
+    bestlambdaLASSO = (lambdalistLASSO)[bestmodel.in-nRRmodels-nENET0.1models-nENET0.2models-nENET0.4models-nENET0.6models-nENET0.8models]
+  }
+
+  #########################################
+  ##          Making predictions         ##
+  ## (using best model/hyper parameters) ##
+  #########################################  
+   
+    #using the empty vector, assign this iterations best model number so we can keep track of it.
+  allbestmodels[j] = bestmodel.in
+  
+    #finally, perform the prediction process on this iterations "test" set using this iterations "best" model.
+    #so for data points with indices of 1, use model 6 (which is a linear regression).
+  if (bestmodel.in <= nRRmodels){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaRR)
+  
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaENET01)
+  
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaENET02)
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaENET04)  
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaENET06)
+    
+  } else if (bestmodel.in <= nRRmodels+nENET0.1models+nENET0.2models+nENET0.4models+nENET0.6models+nENET0.8models){
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaENET08)  
+    
+  } else {  # then best is one of LASSO models
+    allpredictedCV.out[groupj.out] = predict(bestfit,newx=as.matrix(validdata.out)[,-c(1,2)],s=bestlambdaLASSO)
+  }
+  
+  ####################################
+  ##   End of CV outer loop         ##
+  ## (will recycle for k.out times) ##
+  ####################################  
+  
+}
+
+#############################################################
+##### Now 2x CV is done, lets assess the results        #####				 
+#############################################################
+
+# for curiosity, we can see the models that were "best" on each of the inner splits
+allbestmodels
+
+#assessment
+  #pull all of the y's out of the original dataset
+y.out = fulldata.out$Volume
+  #calculate MSE of all the predicted values - actual values
+CV.out = sum((allpredictedCV.out-y.out)^2)/n.out; CV.out
+  #calculate R2 value based on all these predictions. 
+R2.out = 1-sum((allpredictedCV.out-y.out)^2)/sum((y.out-mean(y.out))^2); R2.out
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+heart = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 8/Heart_disease_Cleveland.csv")
+heart$HD = as.factor(ifelse(heart$DiseaseStatus == "0",0,1))
+heart = heart[,c("Age", "BloodPressure", "Chol", "MaxHeartRate", "STdepress", "HD")]
+
+
+set.seed(8, sample.kind = "Rounding")
+    library(MASS)
+    ##############################
+    ##entire model-fitting process##
+    xy.in = heart
+    n.in = dim(xy.in)[1]
+    ncv = 10
+    if ((n.in%%ncv) == 0) {
+        groups.in= rep(1:ncv,floor(n.in/ncv))} else {
+        groups.in=c(rep(1:ncv,floor(n.in/ncv)),(1:(n.in%%ncv)))
+    }
+
+    cvgroups.in = sample(groups.in,n.in)
+       # with model selection 
+    allpredictedcv10 = matrix(,ncol=6,nrow=n.in)
+    for (i in 1:ncv) {
+        # split out the test set
+        newdata.in = xy.in[cvgroups.in==i,]
+     
+        #fit LDA on 2 predictors, for training set (cvgroups.in!=i)
+        lda2fit = lda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,1] = predict(lda2fit,newdata.in)$class
+     
+        #fit LDA on 5 predictors, for training set (cvgroups.in!=i)
+        lda5fit = lda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,2] = predict(lda5fit,newdata.in)$class
+     
+        #fit QDA on 2 predictors, for training set (cvgroups.in!=i)
+        qda2fit = qda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,3] = predict(qda2fit,newdata.in)$class
+     
+        #fit QDA on 5 predictors, for training set (cvgroups.in!=i)
+        qda5fit = qda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,4] = predict(qda5fit,newdata.in)$class
+     
+        #fit logistic on 2 predictors, for training set (cvgroups.in!=i)
+        log2fit = glm(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i), family=binomial)
+        log2prob = predict(log2fit,newdata.in,type="response")
+        log2fact = rep(1,dim(newdata.in)[1]); log2fact[log2prob > 0.5] = 2
+        allpredictedcv10[cvgroups.in==i,5] = log2fact
+     
+        #fit logistic on 5 predictors, for training set (cvgroups.in!=i)
+        log5fit = glm(HD ~., data= xy.in, subset=(cvgroups.in!=i),family=binomial)
+        log5prob = predict(log5fit,newdata.in,type="response")
+        log5fact = rep(1,dim(newdata.in)[1]); log5fact[log5prob > 0.5] = 2
+        allpredictedcv10[cvgroups.in==i,6] = log5fact
+    }
+    #relabel as original values, not factor levels
+    allpredictedcv10 = allpredictedcv10-1  # now a table of predicted 0-1 values for HD
+ 
+    #compute the CV values
+    allcv10 = rep(0,6)
+    for (m in 1:6) allcv10[m] = sum(xy.in$HD!=allpredictedcv10[,m])/n.in
+    bestmodels = (1:6)[allcv10 == min(allcv10)]
+    ##############################
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+#open data
+heart = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 8/Heart_disease_Cleveland.csv")
+heart$HD = as.factor(ifelse(heart$DiseaseStatus == "0",0,1))
+heart = heart[,c("Age", "BloodPressure", "Chol", "MaxHeartRate", "STdepress", "HD")]
+
+
+  #setting sample size
+n = nrow(heart)
+  #counting how many models
+nmodels = 6
+
+
+################################################################
+##### Validation set assessment of entire modeling process #####				 
+################################################################
+
+##### model assessment outer validation shell #####
+fulldata.out = heart
+
+k.out = 10 
+n.out = nrow(fulldata.out)
+#define the split into training set (of size about 2/3 of data) and validation set (of size about 1/3)
+n.train.out = 203
+n.valid.out = 100
+set.seed(8, sample.kind = "Rounding")
+
+valid.out = sample(1:n.out,n.valid.out)  #produces list of data to exclude
+include.train.out = !is.element(1:n.out,valid.out)  # sets up a T-F vector to be used similarly as group T-F vectors
+include.valid.out = is.element(1:n.out,valid.out)  # sets up a T-F vector to be used similarly as group T-F vectors
+
+#just one split into training and validation sets
+traindata.out = heart[include.train.out,]
+trainx.out = model.matrix(HD~.,data=traindata.out)[,-1]
+trainy.out = traindata.out[,6]
+validdata.out = heart[include.valid.out,]
+validx.out = model.matrix(HD~.,data=validdata.out)[,-1]
+validy.out = validdata.out[,6]
+
+  ### entire model-fitting process  ###
+
+  ###	:	:	:	:	:	:	:   ###
+  ###INCLUDING ALL CONSIDERED MODELS###		
+
+
+    ##############################
+    ##entire model-fitting process##
+    xy.in = traindata.out
+    n.in = nrow(xy.in)
+    ncv = 10
+    if ((n.in%%ncv) == 0) {
+        groups.in= rep(1:ncv,floor(n.in/ncv))
+    } else {
+        groups.in=c(rep(1:ncv,floor(n.in/ncv)),(1:(n.in%%ncv)))
+    }
+
+    cvgroups.in = sample(groups.in,n.in)
+       # with model selection 
+    allpredictedcv10 = matrix(,ncol=6,nrow=n.in)
+    for (i in 1:ncv) {
+        # split out the test set
+        newdata.in = xy.in[cvgroups.in==i,]
+     
+        #fit LDA on 2 predictors, for training set (cvgroups.in!=i)
+        lda2fit = lda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,1] = predict(lda2fit,newdata.in)$class
+     
+        #fit LDA on 5 predictors, for training set (cvgroups.in!=i)
+        lda5fit = lda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,2] = predict(lda5fit,newdata.in)$class
+     
+        #fit QDA on 2 predictors, for training set (cvgroups.in!=i)
+        qda2fit = qda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,3] = predict(qda2fit,newdata.in)$class
+     
+        #fit QDA on 5 predictors, for training set (cvgroups.in!=i)
+        qda5fit = qda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+        allpredictedcv10[cvgroups.in==i,4] = predict(qda5fit,newdata.in)$class
+     
+        #fit logistic on 2 predictors, for training set (cvgroups.in!=i)
+        log2fit = glm(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i), family=binomial)
+        log2prob = predict(log2fit,newdata.in,type="response")
+        log2fact = rep(1,dim(newdata.in)[1]); log2fact[log2prob > 0.5] = 2
+        allpredictedcv10[cvgroups.in==i,5] = log2fact
+     
+        #fit logistic on 5 predictors, for training set (cvgroups.in!=i)
+        log5fit = glm(HD ~., data= xy.in, subset=(cvgroups.in!=i),family=binomial)
+        log5prob = predict(log5fit,newdata.in,type="response")
+        log5fact = rep(1,dim(newdata.in)[1]); log5fact[log5prob > 0.5] = 2
+        allpredictedcv10[cvgroups.in==i,6] = log5fact
+    }
+    #relabel as original values, not factor levels
+    allpredictedcv10 = allpredictedcv10-1  # now a table of predicted 0-1 values for HD
+ 
+    #compute the CV values
+    allcv10 = rep(0,6)
+    for (m in 1:6) 
+      allcv10[m] = sum(xy.in$HD!=allpredictedcv10[,m])/n.in
+    bestmodels = (1:6)[allcv10 == min(allcv10)]
+    ##############################
+
+
+
+
+
+
+
+  ###   :	:	:	:	:	:	:   ###
+  ### resulting in bestmodel.in ###
+
+if (bestmodel.in <= nLinmodels) {  # then best is one of linear models
+  allpredictedvalid.out = predict(bestfit,validdata.out)
+} else if (bestmodel.in <= nRRmodels+nLinmodels) {  # then best is one of RR models
+  allpredictedvalid.out = predict(bestfit,newx=validdata.out,s=bestlambdaRR)
+} else {  # then best is one of LASSO models
+  allpredictedvalid.out = predict(bestfit,newx=validdata.out,s=bestlambdaLASSO)
+}
+
+plot(allpredictedvalid.out,validy.out)
+MSE.out = sum((allpredictedvalid.out-validy.out)^2)/n.valid.out; MSE.out
+R2.out = 1-sum((allpredictedvalid.out-validy.out)^2)/sum((validy.out-mean(validy.out))^2); R2.out
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# define data frame heart as in WebWork Lesson 8, Problem 4
+
+input = read.csv("Heart_Disease_Cleveland.csv")
+names(input)
+heart = input[,c(1,4,5,8,10)]
+heart$HD = rep(0, length(input$DiseaseStatus))
+heart$HD[which(input$DiseaseStatus > 0)] = 1
+heart$HD = factor(heart$HD)
+
+# read in libraries
+library(MASS)
+
+##### model assessment OUTER 10-fold CV (with model selection INNER 10-fold CV as part of model-fitting) #####
+
+xy.out = heart
+n.out = dim(xy.out)[1]
+
+#define the cross-validation splits 
+k.out = 10 
+groups.out = c(rep(1:k.out,floor(n.out/k.out)),1:(n.out%%k.out))  #produces list of group labels
+set.seed(8, sample.kind = "Rounding")
+cvgroups.out = sample(groups.out,n.out)  #orders randomly, with seed (8) 
+
+allpredictedCV.out = rep(NA,n.out)
+
+##### model assessment OUTER shell #####
+for (j in 1:k.out)  {  #be careful not to re-use loop indices
+  groupj.out = (cvgroups.out == j)
+
+  # define the training set for outer loop
+  trainxy.out = xy.out[!groupj.out,]
+  
+  #define the validation set for outer loop
+  testxy.out = xy.out[groupj.out,]
+
+  ##############################################
+  ###   model selection on trainxy.out       ###
+  ##############################################
+  ##entire model-fitting process##
+  xy.in = trainxy.out  # fixed to be fit ONLY to the training data from the outer split
+  n.in = dim(xy.in)[1]
+  ncv = 10
+  if ((n.in%%ncv) == 0) {
+    groups.in= rep(1:ncv,floor(n.in/ncv))} else {
+      groups.in=c(rep(1:ncv,floor(n.in/ncv)),(1:(n.in%%ncv)))
+    }
+  
+  cvgroups.in = sample(groups.in,n.in)
+  # set up storage
+  allpredictedcv10 = matrix(,ncol=6,nrow=n.in)
+  
+  # with model selection 
+  for (i in 1:ncv) {
+    newdata.in = xy.in[cvgroups.in==i,]
+    
+    lda2fit = lda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+    allpredictedcv10[cvgroups.in==i,1] = predict(lda2fit,newdata.in)$class
+
+    lda5fit = lda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+    allpredictedcv10[cvgroups.in==i,2] = predict(lda5fit,newdata.in)$class
+    
+    qda2fit = qda(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i))
+    allpredictedcv10[cvgroups.in==i,3] = predict(qda2fit,newdata.in)$class
+    
+    qda5fit = qda(HD ~., data= xy.in, subset=(cvgroups.in!=i))
+    allpredictedcv10[cvgroups.in==i,4] = predict(qda5fit,newdata.in)$class
+    
+    log2fit = glm(HD ~ MaxHeartRate + STdepress, data=xy.in, subset=(cvgroups.in!=i), family=binomial)
+    log2prob = predict(log2fit,newdata.in,type="response")
+    log2fact = rep(1,dim(newdata.in)[1]); log2fact[log2prob > 0.5] = 2
+    allpredictedcv10[cvgroups.in==i,5] = log2fact
+    
+    log5fit = glm(HD ~., data= xy.in, subset=(cvgroups.in!=i),family=binomial)
+    log5prob = predict(log5fit,newdata.in,type="response")
+    log5fact = rep(1,dim(newdata.in)[1]); log5fact[log5prob > 0.5] = 2
+    allpredictedcv10[cvgroups.in==i,6] = log5fact
+  }
+  #relabel as original values, not factor levels
+  allpredictedcv10 = allpredictedcv10-1  # now a table of predicted 0-1 values for HD
+  
+  #compute the CV values
+  allcv10 = rep(0,6)
+  for (m in 1:6) allcv10[m] = sum(xy.in$HD!=allpredictedcv10[,m])/n.in
+  bestmodels = (1:6)[allcv10 == min(allcv10)]
+  ##############################################
+  ###   resulting in bestmodels              ###
+  ##############################################
+
+  bestmodel = ifelse(length(bestmodels)==1,bestmodels,sample(bestmodels,1))
+  print(allcv10)
+  print(paste("Best model at outer loop",j,"is",bestmodel))
+  #some code-checking assistance:
+  #print(j)
+  #print(allcv10.in)
+  #print(bestmodels)
+  #print(bestmodel)
+
+  if (bestmodel == 1)  {
+    lda2fit.train = lda(HD ~ MaxHeartRate + STdepress, data=trainxy.out)
+    predictvalid = as.numeric(predict(lda2fit.train, testxy.out)$class)
+  }
+  if (bestmodel == 2)  {
+    lda5fit.train = lda(HD ~ ., data=trainxy.out)
+    predictvalid = as.numeric(predict(lda5fit.train, testxy.out)$class)
+  }
+  if (bestmodel == 3)  {
+    qda2fit.train = qda(HD ~ MaxHeartRate + STdepress, data=trainxy.out)
+    predictvalid = as.numeric(predict(qda2fit.train, testxy.out)$class)
+  }
+  if (bestmodel == 4)  {
+    qda5fit.train = qda(HD ~ ., data=trainxy.out)
+    predictvalid = as.numeric(predict(qda5fit.train, testxy.out)$class)
+  }
+  if (bestmodel == 5)  {
+    log2fit.train = glm(HD ~ MaxHeartRate + STdepress, data= trainxy.out, family=binomial)
+    log2prob.test = predict(log2fit.train,testxy.out,type="response")
+    predictvalid = rep(1,dim(testxy.out)[1]); predictvalid[log2prob.test > 0.5] = 2
+  }
+  if (bestmodel == 6)  {
+    log5fit.train = glm(HD ~ ., data= trainxy.out, family=binomial)
+    log5prob.test = predict(log5fit.train,testxy.out,type="response")
+    predictvalid = rep(1,dim(testxy.out)[1]); predictvalid[log5prob.test > 0.5] = 2
+  }
+  #relabel as original values, not factor levels
+  predictvalid = predictvalid-1  # now a vector of predicted 0-1 values for HD in validation set
+  
+  allpredictedCV.out[groupj.out] = predictvalid
+
+}
+
+# the output shows the different models selected in the outer loop - purpose is only to observe processing
+# however, the model selection was done previously (in Problem 4) via single-level cross-validation
+
+#Purpose of double cross-validation:
+# assessment - what proportion of the cross-validated classifications (valid predictions of 
+# new observations, based on model selected using the entire model-selection process)
+# match the actual observations?
+table(heart$HD,allpredictedCV.out)
+CV10.out = sum(heart$HD!=allpredictedCV.out)/n.out
+p.out = 1-CV10.out; p.out  # (133+89)/303
+
+# this sounds pretty reasonable; but note that just always GUESSING the majority 
+# classification, 0, would result in a proportion correctly classified of 0.541... 
+table(heart$HD)/n.out
+# so (cross-validated) proportion 0.733 of correct classifications  is an improvement, 
+# but not a dramatic one
+
+
+```
+
+
+```{r}
+##### model assessment OUTER shell #####
+nvalid = 100
+xy.out = heart
+n.out = dim(xy.out)[1]
+
+#define the validation set
+set.seed(8, sample.kind = "Rounding")
+validset = sample(1:n.out,nvalid)
+trainxy.out = xy.out[-validset,]
+testxy.out = xy.out[validset,]
+###        inputs trainxy.out       ###
+###		:	:	:	:	:	###
+###   entire model-fitting process  ###
+###		:	:	:	:	:	###
+###      resulting in bestmodels     ###
+bestmodel = ifelse(length(bestmodels)==1,bestmodels,sample(bestmodels,1))
+
+# take the single selected best model and fit to the validation set
+if (bestmodel == 1)  {
+    lda2fit.train = lda(HD ~ MaxHeartRate + STdepress, data=trainxy.out)
+    predictvalid = as.numeric(predict(lda2fit.train, testxy.out)$class)
+}
+if (bestmodel == 2)  {
+    lda5fit.train = lda(HD ~ ., data=trainxy.out)
+    predictvalid = as.numeric(predict(lda5fit.train, testxy.out)$class)
+}
+if (bestmodel == 3)  {
+    qda2fit.train = qda(HD ~ MaxHeartRate + STdepress, data=trainxy.out)
+    predictvalid = as.numeric(predict(qda2fit.train, testxy.out)$class)
+}
+if (bestmodel == 4)  {
+    qda5fit.train = qda(HD ~ ., data=trainxy.out)
+    predictvalid = as.numeric(predict(qda5fit.train, testxy.out)$class)
+}
+if (bestmodel == 5)  {
+    log2fit.train = glm(HD ~ MaxHeartRate + STdepress, data= trainxy.out, family=binomial)
+    log2prob.test = predict(log2fit.train,testxy.out,type="response")
+    predictvalid = rep(1,dim(testxy.out)[1]); predictvalid[log2prob.test > 0.5] = 2
+}
+if (bestmodel == 6)  {
+      log5fit.train = glm(HD ~ ., data= trainxy.out, family=binomial)
+      log5prob.test = predict(log5fit.train,testxy.out,type="response")
+      predictvalid = rep(1,dim(testxy.out)[1]); predictvalid[log5prob.test > 0.5] = 2
+}
+
+#relabel as original values, not factor levels
+predictvalid = predictvalid-1  # now a vector of predicted 0-1 values for HD in validation set
+
+#assessment
+CV.valid = sum(testxy.out$HD!=predictvalid)/nvalid
+p.valid = 1-CV.valid
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
