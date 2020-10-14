@@ -392,7 +392,7 @@ Enter your R code below.
 ```{r, echo=TRUE}
 library(randomForest)
 
-
+  #Note: a random forest with maximum variables is just a normal bagged forest (its not randomly excluding predictors when mtry=total predictors).
 hittersBagging = randomForest(logSalary~.-Salary, data = Hitters,
                               mtry = 19, importance=TRUE)
 
@@ -408,7 +408,7 @@ summary(fitlmfull)
 Examining the bagged model you created in the previous question, how does the proportion of variation explained by the bagged model compare with the proportion of variation explained by multiple linear regression?
 
 
-The proportion of variation explained by the bagged model (76.03%) is much greater than that of the normal linear model (52.40%). Therefore it appears to be the better model. 
+The proportion of variation explained by the bagged model (76.01%) is much greater than that of the normal linear model (55.86%). Therefore it appears to be the better model. 
 
 <span style="color:green">**Text Answer**: </span>
 
@@ -418,10 +418,11 @@ The proportion of variation explained by the bagged model (76.03%) is much great
 Which variable is more important for predicting log(Salary) in the bagged model?
 
 ```{r}
+  #when looking at these column headers:
+    #%IncMSE = this is the % of increase in MSE when you *DON'T* include this variable in your model
+    #IncNodePurity = this is the increase in node purity when including this variable in your model
 importance(hittersBagging)
 varImpPlot(hittersBagging)
-
-
 ```
 
 
