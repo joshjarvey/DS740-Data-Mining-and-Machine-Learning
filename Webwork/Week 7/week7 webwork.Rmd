@@ -19,7 +19,7 @@ When you click the **Knit** button a document will be generated that includes bo
   #read in the dataset
 survival = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 7/CancerSurvival01.csv")
   #change the response variable to a factor
-survival$Survival01 = as.factor(survival$Survival01)
+#survival$Survival01 = as.factor(survival$Survival01)
 
   #load the tree library
 library(tree)
@@ -72,7 +72,7 @@ text(prunedFit,pretty = 0)
 library(gbm)
 
 set.seed(400, sample.kind = "Rounding")
-survival$Survival01 = as.integer(survival$Survival01)
+#survival$Survival01 = as.integer(survival$Survival01)
 
   #fit a boosted tree model
   #5000 trees, lambda (learning rate) = 0.001, interaction = 2 (so it can split at least twice), and distribution is "bernoulli" since it is a classification problem. Would be "gaussian" if regression problem. 
