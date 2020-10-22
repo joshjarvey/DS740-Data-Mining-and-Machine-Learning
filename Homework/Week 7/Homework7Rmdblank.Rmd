@@ -186,13 +186,31 @@ Create a pruned tree with 5 leaves.  What is the error rate of the pruned tree o
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 
 ```{r,echo=FALSE}
-  #create a tree within the prune.misclass() function. This new tree uses "test" data, and keeps it to 5 best leaves. 
-prunedFitTree = prune.misclass(tree(Purchase~.,data = OJ[-train,]), best = 5)
-  #check misclassification error. 
-summary(prunedFitTree)
+  #create a tree within the prune.misclass() function. This new tree uses "training" data, and keeps it to 5 best leaves (i.e. terminal nodes)
+prunedFitTree = prune.misclass(fitTree, best = 5)
+
+pred = predict(prunedFitTree, newdata = OJ[-train,], type = "class")
+
+  #there is no difference between the pruned vs. unpruned tree because, although the pruning simplfies things (on the left hand side), the same amount of classification errors are made regardless. 
+table(pred,OJ$Purchase[-train]) #pruned
+
+1 - ((147+84) / (147+84+21+18))
+
 ```
 
-answer: 0.1148
+
+```{r}
+  #visualize the pruned tree.
+plot(prunedFitTree)
+text(prunedFitTree,pretty = 0)
+
+  #visualize the pruned tree.
+plot(fitTree)
+text(fitTree,pretty = 0)
+
+```
+
+
 
 
 ***
@@ -315,7 +333,7 @@ What MSE do you find for each method?
 #####################################
 ### Question 11 (1 point) 
 
-Boosting:0.4319816
+Boosting:
 
 
 <span style="color:green">**Numeric Answer**  </span> 
@@ -327,7 +345,7 @@ Boosting:0.4319816
 #####################################
 ### Question 12 (1 point) 
 
-Linear regression: 0.2213834
+Linear regression: 
 
 
 <span style="color:green">**Numeric Answer**  </span> 
@@ -429,7 +447,7 @@ varImpPlot(hittersBagging)
 <span style="color:green">**Multiple choice Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
 	
-CRBI <--- correct???
+CRBI <--- correct
 
 Years
 
