@@ -58,7 +58,7 @@ Enter your R code below.  </span>
 ```{r, echo=TRUE}
 library(ggformula)
 
-  #create a scatterplot
+  #create a scatterplot.
 gf_point(scale(logSize)~scale(logRange), color = ~Region, data = oak, title = "Standardized acorn size vs. standardized range by Region")
 ```
 
@@ -89,7 +89,11 @@ Enter your R code below. </span>
 library(e1071)
 
   #fit the svc using cost 1.
-svmfit = svm(Region ~ logSize + logRange, data = oak, cost = 1, kernel = "linear", type = "C-classification")
+svcfit = svm(Region ~ logSize + logRange,
+             data = oak, 
+             cost = 1, 
+             kernel = "linear", 
+             type = "C-classification")
 ```
 
 
@@ -107,7 +111,7 @@ svmfit = svm(Region ~ logSize + logRange, data = oak, cost = 1, kernel = "linear
 ```{r}
   #display the confusion matrix. predictions are on the rows, actuals on the columns.
   #there are 2 species the model said california, but were actually atlantic.
-table(svmfit$fitted,oak$Region)
+table(svcfit$fitted,oak$Region)
 
 ```
 
@@ -136,7 +140,8 @@ table(svmfit$fitted,oak$Region)
   #plot the scaled versions of logSize vs. logRange.
   #use the circle to denote atlantic, and square to denote california - these are the 2 regions.
   #color the atlantic region red, and california region blue.
-plot(scale(oak$logRange), scale(oak$logSize), 
+plot(scale(oak$logRange), scale(oak$logSize),
+     main = "Std. acorn size vs. Std. range by region, with classifer margin",
      pch = c(21,22)[oak$Region], 
      col = c("red","blue")[oak$Region])
 
@@ -148,10 +153,10 @@ legend("topleft",
 
 
   #this is beta0, the intercept
-b = svmfit$rho 
+b = svcfit$rho 
 
   #this gives a vector of the coefficients, b1, b2, ...bp. In this instance its b1, and b2.
-w = colSums(svmfit$coefs[,1] * svmfit$SV)
+w = colSums(svcfit$coefs[,1] * svcfit$SV)
 
 
 #abline(): This function is an easy way to add lines onto a plot.
@@ -223,7 +228,11 @@ Auto$origin = as.factor(Auto$origin)
 <span style="color:green">**Code Answer**: </span>
 ```{r, echo=TRUE}
   #fitting a support vector classifier.
-svcfit = svm(goodMPG~.-mpg-name, data = Auto, kernel = "linear", cost = 1, type = "C-classification")
+svcfit = svm(goodMPG~.-mpg-name,
+             data = Auto,
+             kernel = "linear",
+             cost = 1,
+             type = "C-classification")
 
 ```
 
@@ -331,7 +340,7 @@ COST = 1
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 
 
-GAMMA = 3
+GAMMA = 3 (actually 1?)
 
 #####################################
 ### <span style="color:DarkViolet">Question 15 </span> **<span style="color:Crimson">(1 point)</span>**:
@@ -343,7 +352,7 @@ GAMMA = 3
 **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
 
 
-0.07384615
+0.07384615 (actually 0.0611)
 
 #####################################
 ### <span style="color:DarkViolet">Question 16</span> **<span style="color:Crimson">(3 points)</span>**:
@@ -366,8 +375,9 @@ Enter your R code below.  </span>
 bestModel = tuned.svmfit$best.model
 
   #creating a new car's worth of data
+    #make sure to match variable types per the original dataframe. Even the amount of factor levels!
 newCar = data.frame(
-  mpg = NA,
+  mpg = 0,
   cylinders = 4,
   displacement = 132.5,
   horsepower = 155,
@@ -375,8 +385,8 @@ newCar = data.frame(
   acceleration = 8.3,
   year = 1977,
   origin = factor(1, levels = c(1,2,3)),
-  name = "Chrysler Sunbeam"
-)
+  name = factor("Chrysler Sunbeam",levels = c(1:304))
+  )
 
   #make a prediction if the car gets good gas mileage.
 predict(bestModel,newCar)
@@ -394,5 +404,5 @@ predict(bestModel,newCar)
 
 <span style="color:green">**Multiple choice Answer** </span>
   **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
-Low,  
+Low, <<----- correct  
 High  
