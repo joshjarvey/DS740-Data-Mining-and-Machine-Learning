@@ -1,0 +1,212 @@
+---
+title: "Mid-term Low Birthweight Prediction"
+author: "Josh Jarvey"
+date: "10/26/2020"
+output: word_document
+---
+
+## 1.0 - Data preparation:
+
+First we will read in our dataset, and check our variable types.
+
+```{r}
+  #read in dataset
+birth = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 8 - Midterm/birthwt.csv")
+
+  #check attribute data types. 
+str(birth)
+```
+
+Since we will be modeling the baby's birth weight (bwt) variable, we will remove the redundant "low" classification variable.
+
+```{r}
+  #remove the "low" variable.
+birth = birth[,-1]
+```
+
+Some variables will need to be converted to the proper types for analysis.
+
+```{r}
+  #convert the following variables to factor type.
+birth$race = as.factor(birth$race)
+birth$smoke = as.factor(birth$smoke)
+birth$ht = as.factor(birth$ht)
+birth$ui = as.factor(birth$ui)
+```
+
+Now that we have the variables in the proper format, lets take a look at the summary to see if we have any data that's missing, mis-coded, or extreme outliers that would warrant further investigation.
+
+```{r}
+summary(birth)
+```
+
+We can also look at histograms/boxplots of the quantitative variables to identify if there are any skews to the observations. 
+
+```{r,message=FALSE, echo=FALSE, fig.width = 10, fig.height = 6}
+library(ggformula)
+library(ggpubr)
+
+  #create the visualizations
+bx_bwt=gf_boxplot(bwt~., data=birth, color = "red", xlab="", ylab="", title='Distribution of "bwt" variable')
+bx_lwt=gf_boxplot(lwt~., data=birth, color = "blue", xlab="", ylab="", title='Distribution of "lwt" variable')
+bx_age=gf_boxplot(age~., data=birth, color = "black",xlab="", ylab="", title='Distribution of "age" variable')
+hist_bwt = gf_histogram(~bwt, data = birth, color = "red", fill = "red", xlab = "", ylab = "")
+hist_lwt = gf_histogram(~lwt, data = birth, color = "blue", fill = "blue", xlab = "", ylab = "")
+hist_age = gf_histogram(~age, data = birth, color = "black", fill = "black", xlab = "", ylab = "")
+
+  #display the plots 
+ggarrange(bx_bwt,bx_lwt,bx_age,hist_bwt,hist_lwt,hist_age, ncol = 3, nrow = 2)
+rm(bx_bwt,bx_lwt,bx_age,hist_bwt,hist_lwt,hist_age)
+```
+There does appear to be some skew in the mother's weight variable "lwt", so before we move forward with fitting a model we will perform a log() transformation on the variable, and we'll remove the original from the data set. 
+
+```{r}
+  #log transform lwt, and remove it.
+birth$loglwt = log(birth$lwt)
+birth = birth[,-3]
+```
+
+## 2.0 - Data Analysis:
+
+Now that our data is prepared, we can begin the modeling process. Since our variable of interest is a quantitative response, we will utilize two prediction methods: the penalized regression and the random forest. 
+
+For our first candidate model, we will plan to fit a penalized regression model for each of the possible predictor variables. Cross-validation will be performed on the model, allowing for tuning of the hyper parameters. 
+
+```{r}
+library(glmnet)
+  #set seed for reproduceability
+set.seed(8, sample.kind = "Rounding") 
+  #count the sample size.
+n = nrow(birth)
+  #set the number of folds.
+k = 10
+  #create groups of 1-10 for the entire dataset
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
+
+  #randomly shuffle the 1-10 dataset.
+cvgroups = sample(groups,n)
+
+  #create a vector of lambda's between 0.001 to 1, by 0.001 increments. Ordered greatest to least.
+lambdalist = seq(1,.001, by=-.001)
+
+  #extract y as the log.enroll
+y = birth[,1]
+  #extract all the remaining variables as the x's.
+x = model.matrix(bwt~.,data = birth)[,-1]
+
+cvENfit = cv.glmnet(x, y, alpha = 1, lambda = lambdalist, nfolds=k, foldid=cvgroups)
+
+
+
+plot(lambdalist,cvENfit$cvm, main = "10-fold Cross Validation Error vs. Lambda", xlab = "Lambda", ylab = "CV Error")
+
+
+
+cvENfit$lambda.min
+min(cvENfit$cvm)
+
+coef(cvENfit, s = 0.999)
+```
+
+
+
+
+```{r}
+library(MASS)
+
+fit.bisquare = rlm(bwt~age+race+smoke+ptl+ht+ui+ftv+loglwt, data = birth, psi=psi.bisquare)
+fit.huber = rlm(bwt~age+race+smoke+ptl+ht+ui+ftv+loglwt, data = birth, psi=psi.huber)
+
+summary(fit.bisquare)
+
+  #create a plot of weights per the observations.
+plot(fit.bisquare$w, ylab = "Weights")
+
+  #find the observations that have less than 0.8 as a weight
+smallweights = which(fit.bisquare$w < 0.8)
+
+  #add the state labels to the plot for the weights that are considered smallweights. 
+library(car)
+showLabels(1:nrow(birth),fit.bisquare$w, labels = birth$age, method = smallweights)
+
+
+```
+
+
+```{r}
+library(leaps)
+fit.allsubsets=regsubsets(bwt~., data=birth, nvmax=8)
+
+plot(fit.allsubsets)
+
+
+predict.regsubsets <- function(object, alldata, subset, id, ...){
+  form = as.formula(object$call[[2]])
+  mat = model.matrix(form, alldata)
+  mat = mat[subset, ]
+  coefi = coef(object, id=id)
+  xvars = names(coefi)
+  mat[ , xvars] %*% coefi
+} # end function predict.regsubsets
+
+
+
+  #setting n to be the number of observations in the dataset
+n = nrow(birth)
+  #using 10-fold cross-validation
+k = 10 
+
+  #produces list of group labels from 1-10
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))  
+
+set.seed(8, sample.kind = "Rounding") 
+
+  #setting up our cross-validation groups be randomizing each observation's CV group's label
+cvgroups = sample(groups,n) 
+
+  #row = number of variables per each model, column = which fold. This matrix will store each model's (from 1 to 41) CV error
+group.error = matrix(,nr=8, nc=k) 
+
+  #setting up a for loop to perform cross-validation
+for(i in 1:k){
+    #using the current iteration of the CV fold, set up a "test" hold out sample.
+  test = (cvgroups == i)
+	
+    #perform all subsets regression, using all the data EXCEPT the test hold out sample, allow 41 variables. 
+	cv.fit = regsubsets(bwt~., data=birth[!test,], nvmax=8)
+	
+	  #now for each one of these 41 models, use the custom predict function on the test hold-out sample. 
+	  #calculate the CV error and store it into the group.error matrix for the current model (id=j).
+	  #repeat this process for all folds of the cross validation. 
+	for(j in 1:8){
+	    #use custom predict function - pass reg subsets object, the hold out dataset, and the current model (j).
+		y.pred = predict(cv.fit, alldata = birth, subset = test, id=j)
+		  #calculate the CV error and store it in the appropriate spot of the matrix
+		group.error[j, i] = mean((birth$bwt[test]-y.pred)^2)
+	}
+}
+
+# Question 8
+
+  #now that we have all the CV errors calculated for each of the 10 folds for all 41 models, we can average them up.
+  #apply the mean function to each row (i.e. "1") of the group.error matrix
+MSE = apply(group.error,1,mean)
+  #plot this resulting vector to visualize the low point
+plot(MSE)
+  #or, just find the index of the row with the lowest MSE. That is our resulting model for selection. 
+which.min(MSE)
+
+
+MSE
+
+coef(cv.fit,6)
+
+exp(637)
+```
+
+
+
+
+
+
+
