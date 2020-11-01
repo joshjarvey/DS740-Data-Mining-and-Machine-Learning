@@ -12,7 +12,6 @@ First we will read in our dataset, and check our variable types.
 ```{r}
   #read in dataset
 birth = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 8 - Midterm/birthwt.csv")
-
   #check attribute data types. 
 str(birth)
 ```
@@ -46,33 +45,35 @@ We can also look at histograms/boxplots of the quantitative variables to identif
 ```{r,message=FALSE, echo=FALSE, fig.width = 10, fig.height = 6}
 library(ggformula)
 library(ggpubr)
-
-  #create the visualizations
-bx_lwt=gf_boxplot(lwt~low, data=birth, color = ~low, xlab="", ylab="", title='Distribution of "lwt" variable')
-bx_age=gf_boxplot(age~low, data=birth, color = ~low, xlab="", ylab="", title='Distribution of "age" variable')
-hist_lwt = gf_histogram(~lwt, data = birth, color = ~low, fill = ~low, xlab = "", ylab = "")
-hist_age = gf_histogram(~age, data = birth, color = ~low, fill = ~low, xlab = "", ylab = "")
-
-  #display the plots 
-ggarrange(bx_lwt,bx_age,hist_lwt,hist_age, ncol = 2, nrow = 2)
-rm(bx_lwt,bx_age,hist_lwt,hist_age)
+  #create boxplots and histograms. 
+ggarrange(gf_boxplot(lwt~low, data=birth, color = ~low, xlab="", ylab="", title='Distribution of "lwt" variable'),
+          gf_boxplot(age~low, data=birth, color = ~low, xlab="", ylab="", title='Distribution of "age" variable'),
+          gf_histogram(~lwt, data = birth, color = ~low, fill = ~low, xlab = "", ylab = ""),
+          gf_histogram(~age, data = birth, color = ~low, fill = ~low, xlab = "", ylab = ""),
+          ncol = 2,nrow = 2)
 ```
 There does appear to be some skew in the mother's weight variable "lwt", so before we move forward with fitting a model we will perform a log() transformation on the variable, and we'll remove the original from the data set. 
 
 ```{r}
-  #log transform lwt, and remove it.
+  #log transform lwt, and remove normal lwt.
 birth$loglwt = log(birth$lwt)
 birth = birth[,-3]
 ```
 
-## 2.0 - Data Analysis:
+As a final step, we'll check for any signs of collinearity by checking correlations among predictor variables and generate scatterplots to visualize any relationships.
 
-Now that our data is prepared, we can begin the modeling process. Since our variable of interest is a binary response, we will utilize two methods that solve for classification problems: the logistic regression and the random forest. 
+```{r}
+  #checking correlation between terms
+cor(birth[,c(2,5,8,9)])
+  #visualizing any relationships
+plot(birth)
+```
 
-For our first candidate model type, we will plan to fit a logistic regression for each of the possible predictor variables. 10-fold cross-validation will be performed on the model, allowing for best model selection among the 8 choices:
+There are no strong correlations among the set of predictors, and we can move onto our modeling selection process.
 
-############# TESTING BEGIN - this is a consolidation of the model fitting below, i just specify model formula once, and incorporate it into the CV/fitting process using for-loops to reference the models.
+## 2.0 - MODELING SELECTION PROCESS:
 
+Now that our data is prepared, we can begin the modeling process. Since our variable of interest is a binary response, we will investigate methods that result in a binary prediction. Because we intend to do predictor selection and cross-validation, we will create the base models and set up 10-fold splits:
 
 ```{r}
   #setting models.
@@ -85,657 +86,455 @@ model6 = (low~age+race+smoke+ptl+ht+ui)
 model7 = (low~age+race+smoke+ptl+ht+ui+ftv)
 model8 = (low~age+race+smoke+ptl+ht+ui+ftv+loglwt)
 allModels = list(model1,model2,model3,model4,model5,model6,model7,model8)
+  #setting number of base candidate models
+nbaseModels = length(allModels)
 
-  #setting number of candidate models
-logisticmodels = 8
-rfmodels = 8
-boostmodels = 8
-
-  #count the sample size.
+  #sample size; setting 10-folds for CV.
 n = nrow(birth)
-
-  #set the number of folds.
 k = 10
-
-  #create groups of 1-10 for the entire dataset
-
+  #randomize 10-fold groups.
 groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
-  #set seed for reproduceability
 set.seed(8, sample.kind = "Rounding") 
-  #randomly shuffle the 1-10 dataset.
 cvgroups = sample(groups,n)
-
 ```
 
-The logistic regression fitting.
+## 2.1 - Logistic Regression:
+
+For our first candidate model type, we will plan to fit a logistic regression since this is a well known method. First we must check our assumptions about the logistic regression model - this shows logistic regression wont be viable due to logit not linear with AGE variable. 
 
 ```{r}
-  #create a matrix to store predicted results from the CV10 for each of the 8 Logistic Regression models.
-lr.allpredictedCV = matrix(rep(NA,n*logisticmodels),ncol=logisticmodels)
+#this code was selected and modified from the online article:
+#http://www.sthda.com/english/articles/36-classification-methods-essentials/148-logistic-regression-assumptions-and-diagnostics-in-r/ 
+library(tidyverse)
+library(broom)
 
-for (i in 1:k)  {
-  test = (cvgroups == i)
-  
-  #fit each of the logistic regression models on training, and predict the test
-  for (m in 1:logisticmodels) {
-    lr.fit = glm(formula = allModels[[m]],data = birth[!test,], family = "binomial")
-    lr.allpredictedCV[test,m] = predict(lr.fit, birth[test,], type = "response")
-  }
-}
+#1: checking that continuous variables are linear to the logit of the response.
+  #full model fit to generate logit values
+fullfit = glm(low~., data = birth, family = "binomial")
+probabilities = predict(fullfit, type = "response")
+predicted.classes = ifelse(probabilities>0.5,1,0)
+  #only check continuous variables
+mydata = birth[,c(2,9)]
+  #build a stacked dataframe with the logit calculation as a column.
+mydata = mydata %>%
+  mutate(logit = log(probabilities/(1-probabilities))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+  #build the scatterplot and display a loess line to check for linearity.
+ggplot(mydata, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw() + 
+  facet_wrap(~predictors, scales = "free_y")
+
+#2: Check for influential outliers
+  #check points on a plot of cooks distance
+plot(fullfit, which = 4, id.n = 3)
+  #plot residuals
+model.data <- augment(fullfit) %>% 
+  mutate(index = 1:n()) 
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = low), alpha = .5) +
+  theme_bw()
+  #check if any residuals are greater than 3 (none, so this checks)
+model.data %>% 
+  filter(abs(.std.resid) > 3)
+
+#3: Check for collinearity. None are above a score of 10.
+library(car)
+vif(fullfit)
+
+#4: response is binary. OK.
 ```
 
-The random forest fitting.
+## 2.2 - K-Nearest Neighbor (knn):
+
+Because the predictors aren't very linear in relationship, we opt to use the k-nearest neighbors method. Here we set up 10-fold cross-validation, and within each fold we scale our quantitative predictors, and try out numerous values for k-neighbors (100) tuning parameter.
+
+```{r}
+library(class)
+k.neighbors = 100
+  #create storage for predictions of 100 KNN models
+knn.allpredictedCV = matrix(rep(NA,n*k.neighbors),ncol=k.neighbors)
+  #predict using KNN with CV10.
+for (i in 1:k) {
+  test = (cvgroups == i)
+  train.x = birth[!test,]
+  test.x = birth[test,]
+  
+    #scale numeric test predictors.
+  age.train.std = scale(train.x$age); ptl.train.std = scale(train.x$ptl)
+  ftv.train.std = scale(train.x$ftv); loglwt.train.std = scale(train.x$loglwt)
+  
+    #scale numeric train predictors
+  age.test.std = scale(test.x$age, 
+                         center = attr(age.train.std,"scaled:center"), 
+                         scale = attr(age.train.std,"scaled:scale"))
+  ptl.test.std = scale(test.x$ptl, 
+                         center = attr(ptl.train.std,"scaled:center"), 
+                         scale = attr(ptl.train.std,"scaled:scale"))
+  ftv.test.std = scale(test.x$ftv, 
+                         center = attr(ftv.train.std,"scaled:center"), 
+                         scale = attr(ftv.train.std,"scaled:scale"))
+  loglwt.test.std = scale(test.x$loglwt, 
+                         center = attr(loglwt.train.std,"scaled:center"), 
+                         scale = attr(loglwt.train.std,"scaled:scale"))
+  
+    #rebuild training and testing dataframes for knn.
+  train.x.std = data.frame(age.train.std,
+                           train.x$race,
+                           train.x$smoke,
+                           ptl.train.std,
+                           train.x$ht,
+                           train.x$ui,
+                           ftv.train.std,
+                           loglwt.train.std)
+  
+  test.x.std = data.frame(age.test.std,
+                           test.x$race,
+                           test.x$smoke,
+                           ptl.test.std,
+                           test.x$ht,
+                           test.x$ui,
+                           ftv.test.std,
+                           loglwt.test.std)
+  
+    #perform knn - 100x for each fold.
+  for (m in 1:k.neighbors) {
+    knn.allpredictedCV[test,m] = knn(train.x,test.x,birth$low[!test], k = m)
+  }
+}
+  #create a vector to store classification error rates
+knn.allmisclass = rep(-1,k.neighbors) 
+  #calculate mis-class error rates for each of the 100 models
+for(m in 1:k.neighbors){
+  cmat = table(knn.allpredictedCV[,m],birth$low)
+  if(dim(cmat)[1] == 2){
+    knn.allmisclass[m] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+  }else{
+    knn.allmisclass[m] = 1-((cmat[1,1] + 0) / sum(cmat))
+  }
+}
+  #display min mis-class error rate and the associated model number.
+which.min(knn.allmisclass); knn.allmisclass[which.min(knn.allmisclass)]
+  #visualize CV10 error across all k neighbors.
+plot(seq(1:k.neighbors),knn.allmisclass, type = "l", xlab = "K-Neighbors", ylab = "Misclass Error Rate", main = "Misclassification Error Rates for KNN")
+points(which.min(knn.allmisclass),knn.allmisclass[which.min(knn.allmisclass)], col = "red", pch = 8)
+```
+
+Overall, we discover that a K=1 with all predictors produces a CV10 misclassification error rate of 15.34%.
+
+## 2.3 - Random Forest
+
+We choose random forest as our second method since it also can work with non-linear predictors. Also, it is more robust against outliers/influencers since it always picks a random subset of observations to build each tree in the random forest.  
 
 ```{r}
 library(randomForest)
-  #create a matrix to store predicted results from the CV10 for each of the 8 random forest models.
-rf.allpredictedCV = matrix(rep(NA,n*rfmodels),ncol=rfmodels)
-
-for (i in 1:k)  {
-  test = (cvgroups == i)
+set.seed(8, sample.kind = "Rounding")
+  #create storage for 171 predictions for 36 random forest models.
+rf.allpredictedCV = matrix(rep(NA,n*36),ncol=36)
   
-  #fit each of the random forest models on training, and predict the test
-  for (m in 1:rfmodels) {
-  	rf.fit = randomForest(formula = allModels[[m]], data = birth[!test,], mtry = sqrt(8))
-  	rf.allpredictedCV[test,m] = predict(rf.fit, newdata = birth[test,], type = "prob")[,2]
+  #capture predictions performing CV10 for 36 models and store in matrix.
+for (i in 1:k)  {
+  train = (cvgroups != i)
+  test = (cvgroups == i)
+  index = 1
+  for (m in 1:nbaseModels) {
+    for (l in 1:m) {
+      rf.fit = randomForest(formula = allModels[[m]], data = birth[train,], mtry = l)
+      rf.allpredictedCV[test,index] = predict(rf.fit, newdata = birth[test,], type = "prob")[,2]
+      index = index +1
+    }
   }
 }
-```
-
-The boost model
-
-```{r}
-library(gbm)
-  #reload the dataset and leave response variable as integer for boost model.
-birth = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 8 - Midterm/birthwt.csv")
-birth = birth[,-2]
-birth$race = as.factor(birth$race)
-birth$smoke = as.factor(birth$smoke)
-birth$ht = as.factor(birth$ht)
-birth$ui = as.factor(birth$ui)
-birth$loglwt = log(birth$lwt)
-birth = birth[,-3]
-
-  #create a matrix to store predicted results from the CV10 for each of the 8 Logistic Regression models.
-boost.allpredictedCV = matrix(rep(NA,n*boostmodels),ncol=boostmodels)
-
-for (i in 1:k)  {
-  test = (cvgroups == i)
-  
-  #fit each of the logistic regression models on training, and predict the test
-  for (m in 1:boostmodels) {
-    boost.fit = gbm(formula = allModels[[m]],
-                    data = birth[!test,],
-                    distribution = "bernoulli",
-                    n.trees = 1000,
-                    shrinkage = 0.001,
-                    interaction.depth = 3)
-	  boost.allpredictedCV[test,m] = predict(boost.fit, newdata = birth[test,], n.trees = 1000, type = "response")
+  #create a vector to store classification error rates
+rf.allmisclass = rep(-1,36) 
+  #calculate mis-class error rates for each of the 36 models.
+for(m in 1:36){
+  cmat = table(ifelse(rf.allpredictedCV[,m]>0.50,"1","0"),birth$low)
+  if(dim(cmat)[1] == 2){
+    rf.allmisclass[m] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+  }else{
+    rf.allmisclass[m] = 1-((cmat[1,1] + 0) / sum(cmat))
   }
 }
+  #display min mis-class error rate and the associated model number.
+which.min(rf.allmisclass); rf.allmisclass[which.min(rf.allmisclass)]
 
-
-
+plot(seq(1:36),rf.allmisclass, type = "l", xlab = "Model Number", ylab = "Misclass Error Rate", main = "Misclassification Error Rates for Random Forest")
+points(which.min(rf.allmisclass),rf.allmisclass[which.min(rf.allmisclass)], col = "red", pch = 8)
 ```
 
+Overall, we discover that a random forest with 5 predictors (age+lwt+race+smoke+ptl+ht), and an mtry=1, produces the best fit with a CV10 misclassification error rate of 29.10%.
 
-###############TESTING END~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Upon comparison of both KNN and Random forest, we find that KNN (k=1) with all predictors is the superior model; misclassification error rate of 15.34% vs. 29.10%
 
+## 3.0 - MODEL ASSESSMENT FOR HONEST PREDICTION
 
+As a final step in this analysis, we will preform double 10-fold cross-validation to assess an honest expectation of error rate for this model. We first split the enter dataset into 10 folds. One is held as an "outer" test, and the other 9 folds are sent into an "inner" modeling selection process where each of these models are also being fit and tested using a CV10 process. The best model from the "inner" fitting process is selected and used to predict the fold that was held back from the "outer" split. The predicted classes are stored, and once the "outer" CV10 process is complete, a confusion matrix is created and the overall misclassification rate is calculated.
 
-
-
-```{r}
-  #count the sample size.
-n = nrow(birth)
-  #set the number of folds.
-k = 10
-
-  #create groups of 1-10 for the entire dataset
-groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
-  #set seed for reproduceability
-set.seed(8, sample.kind = "Rounding") 
-  #randomly shuffle the 1-10 dataset.
-cvgroups = sample(groups,n)
-
-  #initializing an empty vector to store the CV error. set to -1 by default for easier troubleshooting.
-lr1.predvals = rep(-1,n)
-lr2.predvals = rep(-1,n)
-lr3.predvals = rep(-1,n)
-lr4.predvals = rep(-1,n)
-lr5.predvals = rep(-1,n)
-lr6.predvals = rep(-1,n)
-lr7.predvals = rep(-1,n)
-lr8.predvals = rep(-1,n)
-
-  #setting up a for loop to perform cross-validation
-for(i in 1:k){
-    #using the current iteration of the CV fold, set up a "test" hold out sample.
-  test = (cvgroups == i)
-    #perform logistic regression, using all the data EXCEPT the test hold out sample. 
-	lr.fit1 = glm(low~age,data = birth[!test,], family = "binomial")
-	lr.fit2 = glm(low~age+race,data = birth[!test,], family = "binomial")
-	lr.fit3 = glm(low~age+race+smoke,data = birth[!test,], family = "binomial")
-	lr.fit4 = glm(low~age+race+smoke+ptl,data = birth[!test,], family = "binomial")
-	lr.fit5 = glm(low~age+race+smoke+ptl+ht,data = birth[!test,], family = "binomial")
-	lr.fit6 = glm(low~age+race+smoke+ptl+ht+ui,data = birth[!test,], family = "binomial")
-	lr.fit7 = glm(low~age+race+smoke+ptl+ht+ui+ftv,data = birth[!test,], family = "binomial")
-	lr.fit8 = glm(low~age+race+smoke+ptl+ht+ui+ftv+loglwt,data = birth[!test,], family = "binomial")
-	
-	  #now, using the hold-out sample, retrieve predicted probabilities (type=response)
-	lr1.predvals[test] = predict(lr.fit1, birth[test,], type = "response")
-	lr2.predvals[test] = predict(lr.fit2, birth[test,], type = "response") 
-	lr3.predvals[test] = predict(lr.fit3, birth[test,], type = "response") 
-	lr4.predvals[test] = predict(lr.fit4, birth[test,], type = "response") 
-	lr5.predvals[test] = predict(lr.fit5, birth[test,], type = "response") 
-	lr6.predvals[test] = predict(lr.fit6, birth[test,], type = "response") 
-	lr7.predvals[test] = predict(lr.fit7, birth[test,], type = "response") 
-	lr8.predvals[test] = predict(lr.fit8, birth[test,], type = "response") 
-}
-```
-
-Now that we have completed the 10-fold cross-validation for each of the 8 models, we will create a ROC plot containing each of the models. 
-
+Results - after the double cross-validation, the honest misclassification rate of the knn model is: *29.10%*
 
 ```{r}
-library(pROC)
-
-  #creating the roc curve objects.
-lr1.roc = roc(response = birth$low, predictor = lr1.predvals)
-lr2.roc = roc(response = birth$low, predictor = lr2.predvals)
-lr3.roc = roc(response = birth$low, predictor = lr3.predvals)
-lr4.roc = roc(response = birth$low, predictor = lr4.predvals)
-lr5.roc = roc(response = birth$low, predictor = lr5.predvals)
-lr6.roc = roc(response = birth$low, predictor = lr6.predvals)
-lr7.roc = roc(response = birth$low, predictor = lr7.predvals)
-lr8.roc = roc(response = birth$low, predictor = lr8.predvals)
-
-  #plotting the roc curves onto one plot
-plot(lr1.roc)
-plot(lr2.roc, col="blue", add = T)
-plot(lr3.roc, col="red", add = T)
-plot(lr4.roc, col="yellow", add = T)
-plot(lr5.roc, col="brown", add = T)
-plot(lr6.roc, col="green", add = T)
-plot(lr7.roc, col="orange", add = T)
-plot(lr8.roc, col="purple", add = T)
-legend("topleft", 
-       legend = c("Model1", "Model2","Model3", "Model4","Model5", "Model6","Model7", "Model8"), 
-       pch = c(21, 21, 21, 21,21, 21, 21, 21), 
-       col = c("black","blue","red","yellow","brown","green","orange","purple"))
-
-  #calculating the AUC of each roc curve.
-lr.AUC=list(lr1.roc$auc,lr2.roc$auc,lr3.roc$auc,lr4.roc$auc,lr5.roc$auc,lr6.roc$auc,lr7.roc$auc,lr8.roc$auc)
-
-which.max(lr.AUC)
-lr.AUC[which.max(lr.AUC)]
-
-```
-
-Per the above ROC curves plot and AUC calculations, model 8 (containing all predictors) provides the best fitting model with an AUC of 0.679.
-
-Our next candidate model will be a random forest classification model. Again, we fit a random forest for each of the possible predictor variables. 10-fold cross-validation is performed on the model, allowing for best model selection among the 8 choices:
-
-```{r}
-  #set sample size.
-n = nrow(birth)
-  #set the number of folds.
-k = 10
-
-  #create groups of 1-10 for the entire dataset
-groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
-  #set seed for reproduceability
-set.seed(8, sample.kind = "Rounding") 
-  #randomly shuffle the 1-10 dataset.
-cvgroups = sample(groups,n)
-
-  #initializing an empty vector to store the CV error. set to -1 by default for easier troubleshooting.
-rf1.predvals = rep(-1,n)
-rf2.predvals = rep(-1,n)
-rf3.predvals = rep(-1,n)
-rf4.predvals = rep(-1,n)
-rf5.predvals = rep(-1,n)
-rf6.predvals = rep(-1,n)
-rf7.predvals = rep(-1,n)
-rf8.predvals = rep(-1,n)
-
-  #setting up a for loop to perform cross-validation
-for(i in 1:k){
-    #using the current iteration of the CV fold, set up a "test" hold out sample.
-  test = (cvgroups == i)
-  
-    #perform random forest using just the training data.
-	rf.fit1 = randomForest(low~age, data = birth[train,], mtry = sqrt(8))
-  rf.fit2 = randomForest(low~age+race, data = birth[train,], mtry = sqrt(8))
-	rf.fit3 = randomForest(low~age+race+smoke, data = birth[train,], mtry = sqrt(8))
-	rf.fit4 = randomForest(low~age+race+smoke+ptl, data = birth[train,], mtry = sqrt(8))
-	rf.fit5 = randomForest(low~age+race+smoke+ptl+ht, data = birth[train,], mtry = sqrt(8))
-	rf.fit6 = randomForest(low~age+race+smoke+ptl+ht+ui, data = birth[train,], mtry = sqrt(8))
-	rf.fit7 = randomForest(low~age+race+smoke+ptl+ht+ui+ftv, data = birth[train,], mtry = sqrt(8))
-	rf.fit8 = randomForest(low~age+race+smoke+ptl+ht+ui+ftv+loglwt, data = birth[train,], mtry = sqrt(8))
-	
-	  #using the fitted models, make predictions and store those 
-	rf1.predvals[test] = predict(rf.fit1, newdata = birth[test,], type = "prob")
-  rf2.predvals[test] = predict(rf.fit2, newdata = birth[test,], type = "prob")
-	rf3.predvals[test] = predict(rf.fit3, newdata = birth[test,], type = "prob")
-	rf4.predvals[test] = predict(rf.fit4, newdata = birth[test,], type = "prob")
-	rf5.predvals[test] = predict(rf.fit5, newdata = birth[test,], type = "prob")
-	rf6.predvals[test] = predict(rf.fit6, newdata = birth[test,], type = "prob")
-  rf7.predvals[test] = predict(rf.fit7, newdata = birth[test,], type = "prob")
-	rf8.predvals[test] = predict(rf.fit8, newdata = birth[test,], type = "prob")
-}
-
-```
-
-As with the logistic regression, we generate the ROC plot to review model performance. 
-
-```{r}
-library(pROC)
-  #creating the roc objects.
-rf1.roc = roc(response = birth$low, predictor = rf1.predvals)
-rf2.roc = roc(response = birth$low, predictor = rf2.predvals)
-rf3.roc = roc(response = birth$low, predictor = rf3.predvals)
-rf4.roc = roc(response = birth$low, predictor = rf4.predvals)
-rf5.roc = roc(response = birth$low, predictor = rf5.predvals)
-rf6.roc = roc(response = birth$low, predictor = rf6.predvals)
-rf7.roc = roc(response = birth$low, predictor = rf7.predvals)
-rf8.roc = roc(response = birth$low, predictor = rf8.predvals)
-
-  #plotting the roc curves
-plot(rf1.roc)
-plot(rf2.roc, col="blue", add = T)
-plot(rf3.roc, col="red", add = T)
-plot(rf4.roc, col="yellow", add = T)
-plot(rf5.roc, col="brown", add = T)
-plot(rf6.roc, col="green", add = T)
-plot(rf7.roc, col="orange", add = T)
-plot(rf8.roc, col="purple", add = T)
-legend("topleft", 
-       legend = c("Model1", "Model2","Model3", "Model4","Model5", "Model6","Model7", "Model8"), 
-       pch = c(21, 21, 21, 21,21, 21, 21, 21), 
-       col = c("black","blue","red","yellow","brown","green","orange","purple"))
-
-  #calculating the AUC of each roc curve.
-rf.AUC=list(rf1.roc$auc,rf2.roc$auc,rf3.roc$auc,rf4.roc$auc,rf5.roc$auc,rf6.roc$auc,rf7.roc$auc,rf8.roc$auc)
-
-which.max(rf.AUC)
-rf.AUC[which.max(rf.AUC)]
-```
-
-In the case of random forest, we find much better performance, with an overall model #8 (containing all predictor variables) as our top choice. It has an AUC of 0.9357.
-
-
-
-Finally, i repeat this process once more with boosting:
-
-
-```{r}
-library(gbm)
-
-  #reload the dataset and leave response variable as integer for boost model.
-birth = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 8 - Midterm/birthwt.csv")
-birth = birth[,-2]
-birth$race = as.factor(birth$race)
-birth$smoke = as.factor(birth$smoke)
-birth$ht = as.factor(birth$ht)
-birth$ui = as.factor(birth$ui)
-birth$loglwt = log(birth$lwt)
-birth = birth[,-3]
-
-
-
-
-  #set sample size.
-n = nrow(birth)
-  #set the number of folds.
-k = 10
-
-  #create groups of 1-10 for the entire dataset
-groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k)) 
-  #set seed for reproduceability
-set.seed(8, sample.kind = "Rounding") 
-  #randomly shuffle the 1-10 dataset.
-cvgroups = sample(groups,n)
-
-  #initializing an empty vector to store the CV error. set to -1 by default for easier troubleshooting.
-boost1.predvals = rep(-1,n)
-boost2.predvals = rep(-1,n)
-boost3.predvals = rep(-1,n)
-boost4.predvals = rep(-1,n)
-boost5.predvals = rep(-1,n)
-boost6.predvals = rep(-1,n)
-boost7.predvals = rep(-1,n)
-boost8.predvals = rep(-1,n)
-
-  #setting up a for loop to perform cross-validation
-for(i in 1:k){
-    #using the current iteration of the CV fold, set up a "test" hold out sample.
-  test = (cvgroups == i)
-  
-    #perform random forest using just the training data.
-  boost.fit1 = gbm(low~age, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-  boost.fit2 = gbm(low~age+race, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit3 = gbm(low~age+race+smoke, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit4 = gbm(low~age+race+smoke+ptl, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit5 = gbm(low~age+race+smoke+ptl+ht, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit6 = gbm(low~age+race+smoke+ptl+ht+ui, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit7 = gbm(low~age+race+smoke+ptl+ht+ui+ftv, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	boost.fit8 = gbm(low~age+race+smoke+ptl+ht+ui+ftv+loglwt, data = birth[!test,], distribution = "bernoulli", n.trees = 1000,shrinkage = 0.001, interaction.depth = 3)
-	
-	  #using the fitted models, make predictions and store those 
-	boost1.predvals[test] = predict(boost.fit1, newdata = birth[test,], n.trees = 1000, type = "response")
-  boost2.predvals[test] = predict(boost.fit2, newdata = birth[test,], n.trees = 1000, type = "response")
-	boost3.predvals[test] = predict(boost.fit3, newdata = birth[test,], n.trees = 1000, type = "response")
-	boost4.predvals[test] = predict(boost.fit4, newdata = birth[test,], n.trees = 1000, type = "response")
-	boost5.predvals[test] = predict(boost.fit5, newdata = birth[test,], n.trees = 1000, type = "response")
-	boost6.predvals[test] = predict(boost.fit6, newdata = birth[test,], n.trees = 1000, type = "response")
-  boost7.predvals[test] = predict(boost.fit7, newdata = birth[test,], n.trees = 1000, type = "response")
-	boost8.predvals[test] = predict(boost.fit8, newdata = birth[test,], n.trees = 1000, type = "response")
-}
-
-
-
-```
-
-And now we create the ROC plot for boosting:
-
-```{r}
-library(pROC)
-  #creating the roc objects.
-boost1.roc = roc(response = birth$low, predictor = boost1.predvals)
-boost2.roc = roc(response = birth$low, predictor = boost2.predvals)
-boost3.roc = roc(response = birth$low, predictor = boost3.predvals)
-boost4.roc = roc(response = birth$low, predictor = boost4.predvals)
-boost5.roc = roc(response = birth$low, predictor = boost5.predvals)
-boost6.roc = roc(response = birth$low, predictor = boost6.predvals)
-boost7.roc = roc(response = birth$low, predictor = boost7.predvals)
-boost8.roc = roc(response = birth$low, predictor = boost8.predvals)
-
-  #plotting the roc curves
-plot(boost1.roc)
-plot(boost2.roc, col="blue", add = T)
-plot(boost3.roc, col="red", add = T)
-plot(boost4.roc, col="yellow", add = T)
-plot(boost5.roc, col="brown", add = T)
-plot(boost6.roc, col="green", add = T)
-plot(boost7.roc, col="orange", add = T)
-plot(boost8.roc, col="purple", add = T)
-legend("topleft", 
-       legend = c("Model1", "Model2","Model3", "Model4","Model5", "Model6","Model7", "Model8"), 
-       pch = c(21, 21, 21, 21,21, 21, 21, 21), 
-       col = c("black","blue","red","yellow","brown","green","orange","purple"))
-
-  #calculating the AUC of each roc curve.
-boost.AUC=list(boost1.roc$auc,boost2.roc$auc,boost3.roc$auc,boost4.roc$auc,boost5.roc$auc,boost6.roc$auc,boost7.roc$auc,boost8.roc$auc)
-
-which.max(boost.AUC)
-boost.AUC[which.max(boost.AUC)]
-```
-
-And we have a best model at model number 7 (-loglwt), with an AUC of 0.6433.
-
-
-
-
-
-
-
-
-
-
-
-
-
-PERFORM 2x CV
-
-```{r}
-  #creating the linear models to consider
-Model1 = (BodyFatSiri ~ Abs)
-Model2 = (BodyFatSiri ~ Abs+Weight)
-Model3 = (BodyFatSiri ~ Abs+Weight+Wrist+Forearm)
-Model4 = (BodyFatSiri ~ Abs+Weight+Wrist+Forearm+Neck+Biceps+Age)
-Model5 = (BodyFatSiri ~ Abs+Weight+Wrist+Forearm+Neck+Biceps+Age+Thigh+Hip+Ankle)
-Model6 = (BodyFatSiri ~ Abs+Weight+Wrist+Forearm+Neck+Biceps+Age+Thigh+Hip+Ankle+BMI+Height+Chest+Knee)
-
-  #storing the linear models in a list so they can be referenced later
-allLinModels = list(LinModel1,LinModel2,LinModel3,LinModel4,LinModel5,LinModel6)
-  #counting the length of the list
-nLinmodels = length(allLinModels)
-
-
-
-  #sum up the total number of models to we'll be iterating through
-nmodels = 8*2
-
-
-
-
-
-###################################################################
-##### Double cross-validation for modeling-process assessment #####				 
-###################################################################
-
+################################################################
+##  Double cross-validation for modeling assessment           ##				 
+################################################################
 
 #############################################
-##### General prep for outer CV process #####
+##    General prep for OUTER CV process    ##
 #############################################
-
-  #select the full dataset into a variables
+  #prepare parameters and randomize the indices for CV10
 fulldata.out = birth
-  #set the number of Outer folds for our 2x CV.
 k.out = 10 
-  #count the number of samples in the full dataset.
 n.out = nrow(fulldata.out)
-  #setting up the list of indices for CV groups based on the dataset. 
-  #this first line replicates 1:number of folds, an even amount of times. 
 groups.out = c(rep(1:k.out,floor(n.out/k.out)))
-  #however, that might not always work where the data set is even, and if so, append the "remainder" to the indice group. 
 if(floor(n.out/k.out) != (n.out/k.out)){
   groups.out = c(groups.out, 1:(n.out%%k.out))
 }
-
-  #set seed for reproducability
 set.seed(8, sample.kind = "Rounding")
-  #randomize the indices using sample()
 cvgroups.out = sample(groups.out,n.out)
 
-  #set up storage for predicted values from the double-cross-validation
+  #create storage for all CV scores of outer CV, and storage for best model that was used.
 allpredictedCV.out = rep(NA,n.out)
-  #set up storage to see what models are "best" on the inner loops
 allbestmodels = rep(NA,k.out)
-
 ####################################
 ###   Begin double-CV process    ###
 ####################################
 for (j in 1:k.out){ 
 
   ################################################################################
-  ##                    ...Prep for OUTER CV process...                         ##
-  ## (splitting the full dataset into a train/test split for current iteration) ##
-  ##        (j'th training split will get passed into inner CV process)         ##
+  ##                   Split data for OUTER CV10 process                        ##
   ################################################################################
-    #lets find the indices of the current outer fold's iteration. So if j=1, then find where all the 1's are in the randomized indice set
-  groupj.out = (cvgroups.out == 1)
+    #identify indices for outer CV10 groups.
+  groupj.out = (cvgroups.out == j)
+  
+    #split full data into train/test folds.
+  traindata.out = fulldata.out[!groupj.out,]
+  testdata.out = fulldata.out[groupj.out,]
 
-    #using this vector as described above, select everything else that's NOT in current fold - this is our "training" data.
-  traindata.out = birth[!groupj.out,]
-    #using this vector as described above, select ONLY the current fold indices - this is our "test" data
-  validdata.out = birth[groupj.out,]
+        #scale numeric test.out predictors.
+  std.age.train.out = scale(traindata.out$age); std.ptl.train.out = scale(traindata.out$ptl)
+  std.ftv.train.out = scale(traindata.out$ftv); std.loglwt.train.out = scale(traindata.out$loglwt)
   
+    #scale numeric train.out predictors
+  std.age.test.out = scale(testdata.out$age, 
+                         center = attr(std.age.train.out,"scaled:center"), 
+                         scale = attr(std.age.train.out,"scaled:scale"))
+  std.ptl.test.out = scale(testdata.out$ptl, 
+                         center = attr(std.ptl.train.out,"scaled:center"), 
+                         scale = attr(std.ptl.train.out,"scaled:scale"))
+  std.ftv.test.out = scale(testdata.out$ftv, 
+                         center = attr(std.ftv.train.out,"scaled:center"), 
+                         scale = attr(std.ftv.train.out,"scaled:scale"))
+  std.loglwt.test.out = scale(testdata.out$loglwt, 
+                         center = attr(std.loglwt.train.out,"scaled:center"), 
+                         scale = attr(std.loglwt.train.out,"scaled:scale"))
   
-    #from the training data set, we can create the matrix of x's for training
-  trainx.out = model.matrix(low~.,data=traindata.out)[,-(1)]
-    #from the testing data set, we can create the matrix of x's for testing
-  validx.out = model.matrix(low~.,data=validdata.out)[,-(1)]
-    #from the training data set, we can create the vector of y's for training
-  trainy.out = traindata.out[,1]
-    #from the testing data set, we can create the vector of y's for testing
-  validy.out = validdata.out[,1]
+    #rebuild training.out and testing.out dataframes for knn.
+  std.train.x.out = data.frame(std.age.train.out,
+                           traindata.out$race,
+                           traindata.out$smoke,
+                           std.ptl.train.out,
+                           traindata.out$ht,
+                           traindata.out$ui,
+                           std.ftv.train.out,
+                           std.loglwt.train.out)
   
+  std.test.x.out = data.frame(std.age.test.out,
+                           testdata.out$race,
+                           testdata.out$smoke,
+                           std.ptl.test.out,
+                           testdata.out$ht,
+                           testdata.out$ui,
+                           std.ftv.test.out,
+                           std.loglwt.test.out)
   ####################################
   ### pipe current training data   ###
   ####################################
   ########	:	:	:	:	:	:	:  ###########
-  
-    #now that we've split up our outer CV10 data, we can pass in the current iterations "training" dataset
-    #if this is iteration j=1, then traindata.out is all of the data from folds 9-10. etc.
+    #pass train splits from outer CV loop in as "full" dataset for inner CV loop. 
   fulldata.in = traindata.out
-  
   ########	:	:	:	:	:	:	:  ###########
   ####################################
-  ####  start inner CV process    ####
+  ####  start INNER CV process    ####
   ####################################
   
-      ################################################################################
-      ##                    ...Prep for INNER CV process...                         ##
-      ## (splitting piped in data set (train from outer) into train/test split)     ##
-      ################################################################################
-  
-    #number folds and groups for (inner) cross-validation for model-selection
+  ################################################################################
+  ##                    ...Prep for INNER CV process...                         ##
+  ################################################################################
+    #setup inner CV parameters, and prep for splitting fulldata.in (which is traindata.out).
   k.in = 10   
-    #set sample size of the "inner" dataset. 
   n.in = nrow(fulldata.in)
-    #set the indices of the inner groups 
   groups.in = c(rep(1:k.in,floor(n.in/k.in))) 
-    #if the groups do not divide evenly, then append the remainder of indices onto the vector
   if(floor(n.in/k.in) != (n.in/k.in)){
     groups.in = c(groups.in, 1:(n.in%%k.in))  
   }
-    #now we must randomize the indices of this inner training set.
   cvgroups.in = sample(groups.in,n.in)
-    #place-holder for results of CV values from each model. There are 30 models, so 30 results
-    #note: this will get replaced 10x times for each outer CV loop.
-  allmodelCV.in = rep(NA,nmodels)  
-
-      ####################################
-      #### inner CV for linear models  ###
-      ####################################
   
-    #since linear regression does not have any automatic CV output,
-    #set up storage for predicted values from the CV splits, across all linear models.
-  allpredictedCV.in = matrix(rep(NA,n.in*nLinmodels),ncol=nLinmodels)
-  
-  #cycle through all folds:  fit the model to training data, predict test data,
-  # and store the (cross-validated) predicted values
+  #############################################
+  ### start INNER CV for random forest       ##
+  #############################################
+    #create storage for 36 random forest model predictions
+  rf.allpredictedCV.in = matrix(rep(NA,n.in*36),ncol=36)
+    
+    #capture predictions performing CV10 for 36 models and store in matrix.
   for (i in 1:k.in)  {
     train.in = (cvgroups.in != i)
     test.in = (cvgroups.in == i)
-    #fit each of the linear regression models on training, and predict the test
-    for (m in 1:nLinmodels) {
-      lmfitCV.in = lm(formula = allLinModels[[m]],data=bodyfat,subset=train.in)
-      allpredictedCV.in[test.in,m] = predict.lm(lmfitCV.in,fulldata.in[test.in,])
+    index = 1
+    for (m in 1:nbaseModels) {
+      for (l in 1:m) {
+        rf.fit = randomForest(formula = allModels[[m]], data = fulldata.in[train.in,], mtry = l)
+        rf.allpredictedCV.in[test.in,index] = predict(rf.fit, newdata = fulldata.in[test.in,], type = "prob")[,2]
+        index = index +1
+      }
     }
   }
-  # compute and store the CV(10) values
-  for (m in 1:nLinmodels) { 
-    allmodelCV.in[m] = mean((allpredictedCV.in[,m]-fulldata.in$BodyFatSiri)^2)
+    #create a vector to store classification error rates
+  rf.allmisclass.in = rep(-1,36) 
+    #calculate mis-class error rates for each of the 36 models.
+  for(m in 1:36){
+    cmat.in = table(ifelse(rf.allpredictedCV.in[,m]>0.50,"1","0"),fulldata.in$low)
+    if(dim(cmat.in)[1] == 2){
+      rf.allmisclass.in[m] = 1-((cmat.in[1,1] + cmat.in[2,2]) / sum(cmat.in))
+    }else{
+      rf.allmisclass.in[m] = 1-((cmat.in[1,1] + 0) / sum(cmat.in))
+    }
   }
+  #############################################
+  ##   end INNER CV for random forest/       ##
+  ## /start INNER CV for k-nearest neighbors ##
+  #############################################
+    #create storage for 170 predictions for 100 k-neighbor models.  
+  knn.allpredictedCV.in = matrix(rep(NA,n.in*k.neighbors),ncol=k.neighbors)
+  
+    #capture predictions performing CV10 for 100 models and store in matrix.
+  for (i in 1:k.in)  {
+    test.in = (cvgroups.in == i)
+    train.x.in = fulldata.in[!test.in,]
+    test.x.in = fulldata.in[test.in,]
 
-     #######################################
-     #### inner CV for penalized models  ###
-     #######################################
-    #create the x's of this inner dataset
-  x.in = model.matrix(BodyFatSiri~.,data=fulldata.in)[,-(1:4)]
-    #create the y's of this inner dataset.
-  y.in = fulldata.in[,3]
+      #scale numeric test.in predictors.
+    std.age.train.in = scale(train.x.in$age); std.ptl.train.in = scale(train.x.in$ptl)
+    std.ftv.train.in = scale(train.x.in$ftv); std.loglwt.train.in = scale(train.x.in$loglwt)
     
-    #RR cross-validation - uses internal cross-validation function
-  cvRRglm.in = cv.glmnet(x.in, y.in, lambda=lambdalistRR, alpha = 0, nfolds=k.in, foldid=cvgroups.in)
-    #LASSO cross-validation - uses internal cross-validation function
-  cvLASSOglm.in = cv.glmnet(x.in, y.in, lambda=lambdalistLASSO, alpha = 1, nfolds=k.in, foldid=cvgroups.in)
-  
-    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
-  allmodelCV.in[(1:nRRmodels)+nLinmodels] = cvRRglm.in$cvm[order(cvRRglm.in$lambda)]
-    #store CV(10) values, in same numeric order as lambda, in storage spots for CV values
-  allmodelCV.in[(1:nLASSOmodels)+nRRmodels+nLinmodels] = cvLASSOglm.in$cvm[order(cvLASSOglm.in$lambda)]
-
-     ############################################
-     ## End model fitting inner CV calculation ##
-     ############################################  
-  
-  #######################################################################
-  ##                          identify best model                      ##
-  ## (set it to bestmodel, and set best hyper parameters if available) ##
-  #######################################################################  
-  
-      #now that we've fit all the models, pick the best one.
-  bestmodel.in = order(allmodelCV.in)[1]
-
-  ### finally, fit the best model to the full (available. i.e. outer CV's training set) data. 
-  #if the model was a penalized regression, then use the tuned hyper parameters as well.
-  if (bestmodel.in <= nLinmodels) {  # then best is one of linear models
-    bestfit = lm(formula = allLinModels[[bestmodel.in]],data=fulldata.in)  # fit on all available data
-    bestcoef = coef(bestfit)
-  } else if (bestmodel.in <= nRRmodels+nLinmodels) {  # then best is one of RR models
-    bestlambdaRR = (lambdalistRR)[bestmodel.in-nLinmodels]
-    bestfit = glmnet(x.in, y.in, alpha = 0,lambda=lambdalistRR)  # fit the model across possible lambda
-    bestcoef = coef(bestfit, s = bestlambdaRR) # coefficients for the best model fit
-  } else {  # then best is one of LASSO models
-    bestlambdaLASSO = (lambdalistLASSO)[bestmodel.in-nLinmodels-nRRmodels]
-    bestfit = glmnet(x.in, y.in, alpha = 1,lambda=lambdalistLASSO)  # fit the model across possible lambda
-    bestcoef = coef(bestfit, s = bestlambdaLASSO) # coefficients for the best model fit
+      #scale numeric train.in predictors
+    std.age.test.in = scale(test.x.in$age, 
+                           center = attr(std.age.train.in,"scaled:center"), 
+                           scale = attr(std.age.train.in,"scaled:scale"))
+    std.ptl.test.in = scale(test.x.in$ptl, 
+                           center = attr(std.ptl.train.in,"scaled:center"), 
+                           scale = attr(std.ptl.train.in,"scaled:scale"))
+    std.ftv.test.in = scale(test.x.in$ftv, 
+                           center = attr(std.ftv.train.in,"scaled:center"), 
+                           scale = attr(std.ftv.train.in,"scaled:scale"))
+    std.loglwt.test.in = scale(test.x.in$loglwt, 
+                           center = attr(std.loglwt.train.in,"scaled:center"), 
+                           scale = attr(std.loglwt.train.in,"scaled:scale"))
+    
+      #rebuild training.in and testing.in dataframes for knn.
+    std.train.x.in = data.frame(std.age.train.in,
+                             train.x.in$race,
+                             train.x.in$smoke,
+                             std.ptl.train.in,
+                             train.x.in$ht,
+                             train.x.in$ui,
+                             std.ftv.train.in,
+                             std.loglwt.train.in)
+    
+    std.test.x.in = data.frame(std.age.test.in,
+                             test.x.in$race,
+                             test.x.in$smoke,
+                             std.ptl.test.in,
+                             test.x.in$ht,
+                             test.x.in$ui,
+                             std.ftv.test.in,
+                             std.loglwt.test.in)
+    
+ 
+    for (m in 1:k.neighbors) {
+      knn.allpredictedCV.in[test.in,m] = knn(std.train.x.in,std.test.x.in,fulldata.in$low[!test.in], k = m)
+    }
   }
+    #create storage for 100 miss-class error rates. 
+  knn.allmisclass.in = rep(-1,k.neighbors)
+  
+    #calculate miss-class error rates for each of the 100 models.
+  for(m in 1:k.neighbors){
+    cmat.in = table(knn.allpredictedCV.in[,m],fulldata.in$low)
+    if(dim(cmat.in)[1] == 2){
+      knn.allmisclass.in[m] = 1-((cmat.in[1,1] + cmat.in[2,2]) / sum(cmat.in))
+    }else{
+      knn.allmisclass.in[m] = 1-((cmat.in[1,1] + 0) / sum(cmat.in))
+    }
+  }
+  ############################################
+  ## end INNER CV for k-nearest neighbors   ##
+  ############################################
+  #############################################
+  ##  end INNER CV calc for both models/     ##
+  ## /Start model fitting OUTER CV loop      ##
+  ############################################# 
 
-  #########################################
-  ##          Making predictions         ##
-  ## (using best model/hyper parameters) ##
-  #########################################  
-   
-    #using the empty vector, assign this iterations best model number so we can keep track of it.
+  #############################################
+  ##        identify best model              ##
+  #############################################  
+    #combining CV10 error rates, and selecting index of lowest rate - that is best model.
+  bestmodel.in = order(c(rf.allmisclass.in,knn.allmisclass.in))[1]
+  
+  ############################################
+  ##        fit best model                  ##
+  ############################################
+  #now that we have identified best model, fit it to the outer CV10's training data.
+    #if the model was a random forest, then we need to fit that with the right number of predictors and mtry.
+    #Note: if the best model was a KNN, then we go right into prediction step.
+  if (bestmodel.in <= 36) { # then best is one of random forest models
+    if(bestmodel.in == 1){        #RF 1 predictor
+      bestfit = randomForest(formula = allModels[[bestmodel.in]], data = traindata.out, mtry = bestmodel.in)
+    } else if(bestmodel.in <=3){ #RF 2 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-1)
+    } else if(bestmodel.in <=6){ #RF 3 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-3)
+    } else if(bestmodel.in <=10){ #RF 4 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-6)
+    } else if(bestmodel.in <=15){ #RF 5 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-10)
+    } else if(bestmodel.in <=21){ #RF 6 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-15)
+    } else if(bestmodel.in <=28){ #RF 7 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-21)
+    } else                      { #RF 8 predictor
+      bestfit = randomForest(formula = allModels[[ceiling(bestmodel.in/nbaseModels)]], data = traindata.out, 
+                             mtry = bestmodel.in-28)
+    }
+  }
+  ######################################################################
+  ##  Making predictions w/best model on the "outer" holdout sample   ##
+  ######################################################################  
+    #keep track of best 2x CV models for curiosity.
   allbestmodels[j] = bestmodel.in
   
-    #finally, perform the prediction process on this iterations "test" set using this iterations "best" model.
-    #so for data points with indices of 1, use model 6 (which is a linear regression).
-  if (bestmodel.in <= nLinmodels) {  # then best is one of linear models
-    allpredictedCV.out[groupj.out] = predict(bestfit,validdata.out)
-  } else if (bestmodel.in <= nRRmodels+nLinmodels) {  # then best is one of RR models
-    allpredictedCV.out[groupj.out] = predict(bestfit,newx=validdata.out,s=bestlambdaRR)
-  } else {  # then best is one of LASSO models
-    allpredictedCV.out[groupj.out] = predict(bestfit,newx=validdata.out,s=bestlambdaLASSO)
+    #preform prediction using the outer CV10's test/validation set. Store in vector.
+      #if model was 36 or less, use the model fitted with random forest.
+      #else predict response using knn.
+  if (bestmodel.in <= 36) {  # then best is one of random forest
+    allpredictedCV.out[groupj.out] = ifelse(predict(bestfit,newdata = testdata.out, type = "prob")[,2]>0.50,2,1)
+  } else {  
+    allpredictedCV.out[groupj.out] = knn(std.train.x.out,std.test.x.out,fulldata.out$low[!groupj.out], k = bestmodel.in - 36)
   }
-  
   ####################################
   ##   End of CV outer loop         ##
   ## (will recycle for k.out times) ##
   ####################################  
-  
 }
-
-#############################################################
-##### Now 2x CV is done, lets assess the results        #####				 
-#############################################################
-
-# for curiosity, we can see the models that were "best" on each of the inner splits
-allbestmodels
-
-#assessment
-  #pull all of the y's out of the original dataset
-y.out = fulldata.out$BodyFatSiri
-  #calculate MSE of all the predicted values - actual values
-CV.out = sum((allpredictedCV.out-y.out)^2)/n.out; CV.out
-  #calculate R2 value based on all these predictions. 
-R2.out = 1-sum((allpredictedCV.out-y.out)^2)/sum((y.out-mean(y.out))^2); R2.out
-
+  #match the output of knn with the actual response classes.
+allpredictedCV.out = ifelse(allpredictedCV.out=="1",0,1)
+  #create confusion matrix and calculate error rate. 
+cmat.best = table(allpredictedCV.out,birth$low); cmat.best
+1-((cmat.best[1,1] + cmat.best[2,2]) / sum(cmat.best))
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
