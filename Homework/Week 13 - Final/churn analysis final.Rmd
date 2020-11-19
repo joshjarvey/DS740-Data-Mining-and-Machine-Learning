@@ -1,0 +1,112 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "11/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1.0 - Introduction & Data Prep
+
+In this section we begin with reading in the data set, and preparing the relevant variables for the analysis.
+
+We start by reading in the dataset.
+
+```{r}
+churn = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 13 - Final/Churn.csv")
+```
+
+Next, we remove variables that serve no predictive purpose (index, customer id, name) for this analysis. 
+
+```{r}
+churn = churn[,-c(1,2,3)]
+```
+
+We also need to change the data types of some of the variables to factors. 
+
+```{r}
+churn$HasCrCard = as.factor(churn$HasCrCard)
+churn$IsActiveMember = as.factor(churn$IsActiveMember)
+churn$Exited = as.factor(churn$Exited)
+```
+
+Finally, we can check the summary stats of each data type. We're specifically looking for any missing values or outliers. 
+
+```{r}
+summary(churn)
+```
+
+There are no missing values in this data set, so we can move forward onto the next step of the analysis.
+
+## Data Exploration
+
+In this section we visually explore our dataset - specifically, we're looking at the distributions of the quantitative variables, and also if there are any relationships between variables. 
+
+```{r, fig.width=20, fig.height=10}
+library(ggformula)
+library(ggpubr)
+
+
+#gf_boxplot(CreditScore~Exited, data = churn, color = ~Exited)
+#gf_boxplot(Age~Exited, data = churn, color = ~Exited)
+#gf_boxplot(Balance~Geography, data = churn, color = ~Geography)
+
+scatter = ggarrange(ncol = 2, nrow = 3,
+          gf_point(EstimatedSalary~CreditScore, data = churn, color = ~Exited),
+          gf_point(EstimatedSalary~Balance, data = churn, color = ~Exited),
+          gf_point(EstimatedSalary~Age, data = churn, color = ~Exited),
+          gf_point(EstimatedSalary~Tenure, data = churn, color = ~Exited))
+
+
+histo = ggarrange(ncol = 2, nrow = 3,
+          gf_histogram(~EstimatedSalary, data = churn, color = ~Exited, fill = ~Exited),
+          gf_histogram(~Balance, data = churn, color = ~Exited, fill = ~Exited),
+          gf_histogram(~CreditScore, data = churn, color = ~Exited, fill = ~Exited),
+          gf_histogram(~Age, data = churn, color = ~Exited, fill = ~Exited),
+          gf_histogram(~Tenure,data = churn, color= ~Exited, fill = ~Exited))
+
+
+ggarrange(ncol = 2, nrow = 1, histo,scatter)
+plot(churn)
+```
+
+
+```{r}
+hist(log(churn$Balance+1))
+```
+
+
+
+## Fitting the model
+
+```{r}
+library(nnet)
+
+
+churn.std = cbind(churn[,c(2,3,8,9,11)],scale(churn[,c(1,4,5,6,7,10)]))
+
+fit1 = nnet(Exited~., data = churn.std, size = 5, decay = 5, maxit = 1000)
+```
+
+```{r, fig.width=20, fig.height=10}
+library(NeuralNetTools)
+
+plotnet(fit1)
+
+
+
+garson(fit1)
+```
+
+```{r}
+predclass = ifelse(fit1$fitted.values>0.50,1,0)
+
+confusion = table(predclass,churn.std$Exited);confusion
+
+sum(diag(confusion))/sum(confusion)
+```
+
+

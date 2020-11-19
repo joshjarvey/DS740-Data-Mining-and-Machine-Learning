@@ -1,0 +1,231 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "11/6/2020"
+output: html_document
+---
+
+```{r}
+#1a
+x = seq(0,2*pi,0.1)
+y = sin(x)
+
+
+#1b
+library(nnet)
+set.seed(20, sample.kind = "Rounding")
+  #use linout = T because this is a quantitative response
+fit0 = nnet(y~x, size = 0, linout = T, skip = T)
+
+#1c
+matplot(cbind(x,x), cbind(y, fit0$fitted.values))
+```
+
+```{r}
+#2a
+library(nnet)
+  #use linout = T because this is a quantitative response
+fit1 = nnet(y~x, size = 1, linout = T)
+fit2 = nnet(y~x, size = 2, linout = T)
+#2b
+matplot(cbind(x,x), cbind(y, fit1$fitted.values))
+matplot(cbind(x,x), cbind(y, fit2$fitted.values))
+
+#2c
+summary(fit0)
+summary(fit1)
+
+```
+
+
+```{r}
+#3a - did the model reach the maximum iterations before it converge?
+  #value of 0 means NO IT DID NOT REACH MAX ITERS, therefore it has converged. (how backwards...)
+fit1$convergence
+fit2$convergence
+
+#3c - trying different max iterations
+  #converges at maxit=500, but this is greater than the nonconverged model, indicating that this might be a local minimum problem
+fit2 = nnet(y~x, size = 2, linout = T, maxit= 200)
+fit2 = nnet(y~x, size = 2, linout = T, maxit= 500)
+
+#3e - keep clicking through until you find the best value (converged or not).
+set.seed(16, sample.kind = "Rounding")
+fit2 = nnet(y~x, size = 2, linout = T, maxit= 500)
+```
+
+
+
+```{r}
+#4
+library(ISLR)
+library(nnet)
+data("Default")
+summary(Default)
+
+Default$student01 = ifelse(Default$student == "No",0,1)
+Default = Default[,c(1,3,4,5)]
+
+
+set.seed(4, sample.kind = "Rounding")
+fit = nnet(default~., data = Default, size = 1)
+  #notice how all the fitted values are the same...........scaling problem that needs standardization.
+summary(fit$fitted.values)
+
+
+
+
+
+```
+
+```{r}
+#5
+1/(1+ exp(-(0.01 + 0.02*10000)))
+
+1/(1+ exp(-(0.01 + 0.02*100000)))
+
+  #pull together a standardized dataframe
+Default$student01.std = (Default$student01 - mean(Default$student01)) / sd(Default$student01)
+Default$balance.std = (Default$balance - mean(Default$balance)) / sd(Default$balance)
+Default$income.std = (Default$income - mean(Default$income)) / sd(Default$income)
+  #build standardized dataframe back the way it was originally put together. (nnet is sensitive to this).
+Default.std = Default[,c(1,6,7,5)]
+
+Default.std = data.frame(default = Default[ ,1],scale(Default[ ,2:4]))
+
+fit.std = nnet(default~., data = Default.std, size = 1, maxit = 200)
+
+#6
+  #plot the graph
+library(NeuralNetTools)
+plotnet(fit.std)
+  #2 ways to check weights
+summary(fit.std)
+fit.std$wts
+
+
+#7
+  #find probability of default on the 28 observation = ~8%
+fit.std$fitted.values[28]
+
+  #z at the hidden layer node, for observation 28
+zH1 = fit.std$wts[1] + sum(fit.std$wts[2:4] * Default.std[28, 2:4])
+  #sigmoid at hidden node
+sigmoid = 1 / (1+ exp(-zH1))
+  #bias + output from hidden node * weight from that hidden node
+zOut = fit.std$wts[5] + sigmoid * fit.std$wts[6]
+  #sigmoid transform that input and get the final result since this is the output note
+1/(1+exp(-zOut))
+```
+
+
+```{r}
+#8 - predicting values
+
+  #predict the class - default or not default
+  #threshold is 0.50 by default
+DefaultClass = predict(fit.std, Default.std, type = "class")
+  #confusion matrix
+cmat = table(DefaultClass,Default.std$default)
+  #misclass rate
+(40+228)/sum(cmat)
+
+
+#now we will change it up, set threshold of 0.80
+  #create storage for the threshold 0.80
+DefaultClass.8 = rep(NA, nrow(Default.std))
+
+DefaultClass.8[which(fit.std$fitted.values > .8)] = "Yes"
+DefaultClass.8[which(fit.std$fitted.values < .2)] = "No"
+
+confusion = table(predvals = DefaultClass.8, truth = Default.std$default)
+(confusion[1,2] + confusion[2,1])/sum(confusion)
+
+length(which(is.na(DefaultClass.8)))
+
+#9
+  #check variable importance
+garson(fit.std)
+lekprofile(fit.std)
+```
+
+```{r}
+# CV to choose # of hidden nodes
+n = dim(Default)[1]
+k = 10 #using 10-fold cross-validation
+groups = c(rep(1:k,floor(n/k)))
+sizes = 1:8
+misclassError = matrix( , nr = k, nc = length(sizes) )
+conv = matrix(, nr = k, nc = length(sizes) ) 
+set.seed(4, sample.kind = "Rounding")
+cvgroups = sample(groups,n) 
+for(i in 1:k){
+    groupi = (cvgroups == i)
+    myDefault.train = scale(Default[!groupi, 2:4])
+    myDefault.valid = scale(Default[groupi, 2:4], center = attr(myDefault.train, "scaled:center"), 
+            scale = attr(myDefault.train, "scaled:scale"))
+    myDefault.train = data.frame(default=Default[!groupi, 1], myDefault.train)
+    myDefault.valid = data.frame(default=Default[groupi, 1], myDefault.valid)
+    for(j in 1:length(sizes)){
+        fit = nnet(default ~ ., data=myDefault.train, size = sizes[j], trace = F) 
+        predictions = predict(fit, myDefault.valid, type = "class")
+        misclassError[i, j] = length(which(predictions != myDefault.valid[ , 1])) / length(predictions)
+        conv[i, j] = fit$convergence
+    } # end iteration over j
+} # end iteration over i
+
+
+#without maxit = 1000, there were 68 models that didnt converge
+#with maxit = 1000, all models converged (sum = 0). 
+colSums(conv)
+
+```
+```{r}
+  #plotting the CV10 error rates 
+plot(sizes, apply(misclassError,2,mean), type = "l",ylab = "CV10 error")
+
+min(apply(misclassError,2,mean))
+
+
+
+```
+
+
+```{r}
+set.seed(4, sample.kind = "Rounding")
+train = sample(1:10000, 8000, replace = F)
+myDefault.train = scale(Default[train, 2:4])
+myDefault.valid = scale(Default[-train, 2:4], center = attr(myDefault.train, "scaled:center"), 
+        scale = attr(myDefault.train, "scaled:scale"))
+myDefault.train = data.frame(default=Default[train, 1], myDefault.train)
+myDefault.valid = data.frame(default=Default[-train, 1], myDefault.valid)
+
+
+fit = nnet(default~., data = myDefault.train, size = 4, maxit = 1000)
+train.predict = predict(fit, myDefault.train, type = "class")
+length(which(train.predict != myDefault.train[ , 1]))/length(train.predict)
+
+
+predictions = predict(fit,myDefault.valid, type = "class")
+table(predictions,myDefault.valid$default)
+(15+46) / (1919+46+15+20)
+```
+
+
+```{r}
+fit2 = nnet(default ~ ., data=myDefault.train, size = 4, maxit=1000, decay = .5)
+
+
+predictions = predict(fit2,myDefault.valid, type = "class")
+table(predictions,myDefault.valid$default)
+(9+48) / (2000)
+
+
+
+max(abs(fit$wts))
+max(abs(fit2$wts))
+```
+
+
+
+

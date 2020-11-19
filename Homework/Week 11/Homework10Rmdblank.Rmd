@@ -1,0 +1,408 @@
+---
+title: "Homework 10 R markdown"
+author: "Josh Jarvey"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 4.5
+  pdf_document:
+    fig_height: 4
+    fig_width: 4.5
+  word_document:
+    fig_height: 4
+    fig_width: 4.5
+---
+
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+#### <span style="color:Blue">**Intellectual Property:**</span>  
+These problems are the intellectual property of the instructors and may not be reproduced outside of this course.
+
+#### <span style="color:Crimson">**Due Date:**</span>  
+Tuesday, November 21, 2017 at 11:59 PM 
+
+***  
+***  
+
+##########################################################################
+## Problem 1: Mining Association Rules
+##########################################################################
+
+
+In this problem, you will mine association rules from groceries data.
+
+**Data Set**: Load the **arules** library and **Groceries** data set.  
+```{r,echo=FALSE}
+  #load library and dataset.
+library(arules)
+data("Groceries")
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 1</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+How many products are represented in this data set?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #169 columns (products) in this dataset. 
+summary(Groceries)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 2</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+How many transactions (customers) are there?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #9835 rows (transactions/customers) in this dataset. 
+summary(Groceries)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 3</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+What is the largest number of items any customer purchased at one time?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #the largest number of items is the max from the summary - 32 items.
+summary(Groceries)
+```
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 4</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+Make a barplot of the relative frequencies of each item, including all items that were purchased by at least 5% of the customers.  
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #create a bar plot of items with a frequency of more than 5% in the transactions data. 
+itemFrequencyPlot(Groceries, support=0.05)
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Mine all simple association rules with at least .001 support and at least 0.5 confidence. Note:  A “simple” association rule is one with a single item in the consequent.
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #mine all rules with support > 0.001 and confidence > 0.50. Apriori() already does filter to 1 consequence.
+rules = apriori(Groceries, parameter = list(support = 0.001, confidence = 0.50))
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 6</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Print the 10 rules with the highest lift values.
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #find the top 10 rules by lift, and display them.
+top10 = head(rules, n = 10, by = "lift")
+arules::inspect(top10)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 7</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+Use your answer to the previous question to answer the following: what is the lift value for the rule
+
+**{Instant food products, soda} => {hamburger meat}** ?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+lift = 18.99565
+
+#####################################
+### <span style="color:DarkViolet">Question 8</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+Write a sentence interpreting the numerical value from the previous question.
+
+<span style="color:green">**Text Answer**: </span>
+
+Customers who've purchased instant food products and soda are ~19 times more likely to also purchase hamburger meat.
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 9</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+
+How many customers in the data set purchased soda, popcorn, and a salty snack?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+
+count = 12
+
+#####################################
+### <span style="color:DarkViolet">Question 10</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+If a customer purchases ham and processed cheese, what is the probability that he or she will also purchase white bread?
+
+<span style="color:green">**Numeric Answer**  </span> 
+
+***
+
+confidence = 0.6333333
+
+#####################################
+### <span style="color:DarkViolet">Question 11</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Return to working with the original set of rules from the third question in this problem.  Filter out any rules that have lower confidence than more general versions of the same rules.  How many rules remain?
+
+5118
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #find all non-redundant rules
+nonRedundant = which(interestMeasure(rules, measure = "improvement",
+                     transactions = NULL, reuse = TRUE, 
+                     quality_measure = "confidence") >= 0)
+  #store non-redundant rules into rules2
+rules2 = rules[nonRedundant]
+  #check summary of non-redundant rules = 5118 rules remain.
+summary(rules2)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 12</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Suppose that you work for a baking company, and you want to offer a coupon to customers who are likely to buy pastry.  Using your filtered rules from the previous question, identify combination(s) of items that are associated with an increased probability of buying “pastry”.  To whom would you offer your coupon?
+
+<span style="color:green">**Text Answer**: </span>
+
+A customer who purchased: citrus fruit, whole milk, whipped/sour cream, and rolls/buns is 5.62 times more likely to also purchase pastry, therefore we'd offer the coupon to this shopper. 
+
+#####################################
+### <span style="color:DarkViolet">Question 13</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Enter the R code you used to answer the previous question.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #pull a subset of rules that just has pastry as the consequence.
+pastryRules = subset(rules2, subset = rhs %in% c("pastry"))
+  #inspect the top 3 pastry rules by lift value.
+arules::inspect(head(pastryRules, n=3, by = "lift"))
+```
+
+***  
+***  
+
+##########################################################################
+## Problem 2: Modeling with Association Rules
+##########################################################################
+
+In this problem, you will use association rules to model heart disease.  
+
+**Data Set**:  From D2L, Download *HeartDisease.csv* and load it into R.  The file *HeartDisease_data_dictionary.txt* contains information about the variables in the file.
+
+**Source**:  Robert Detrano, M.D., Ph.D. (1988). V.A. Medical Center, Long Beach and Cleveland Clinic Foundation.  Retrieved from the UCI Machine Learning Repository [http://archive.ics.uci.edu/ml]. Irvine, CA: University of California, School of Information and Computer Science.
+
+
+#####################################
+### <span style="color:DarkViolet">Question 14</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+A value of **ChestPain** equal to 4 indicates that the patient is asymptomatic (does not have any kind of chest pain).  Create a new variable, **hasCP**, which equals 1 for all individuals with chest pain, and which equals 0 otherwise.  
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #read in data set
+heart = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 11/HeartDisease.csv")
+  #create binary has chest pain variable. 
+heart$hasCP = ifelse(heart$ChestPain == 4,0,1)
+```
+
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 15</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+Discretize **Age** into 3 ordered categories, using equal interval lengths. 
+
+Enter your R code below.
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+library(arules)
+  #create a discrete age variable with 3 ranges.
+heart$Age.disc = discretize(heart$Age, breaks = 3, ordered = TRUE, method = "interval")
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 16</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Discretize **BloodPressure** into 3 ordered categories with fixed boundaries determined by the first and third quartiles of the data.
+
+Enter your R code below.
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #find min/max, 1st/3rd quartile boundaries
+summary(heart$BloodPressure)
+  #create discrete blood pressure variable with 3 ranges based on the summary information
+heart$BloodPressure.disc = discretize(heart$BloodPressure, breaks = c(94,120,140,200), ordered = TRUE, method = "fixed")
+  #check to ensure no NA's were introduced. No NA's.
+summary(heart$BloodPressure.disc)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 17</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+Tell R to treat the other variables (which you didn’t create using $\texttt{discretize()}$ ) in **HeartDisease.csv** as discrete factors.  Create a data frame containing the discrete versions of all of the variables (it should have 14 columns).  Then convert the data frame to a format suitable for association rule mining.
+
+Enter your R code below.
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #convert remaining non-factor variables into factor variables. 
+heart$Sex = as.factor(heart$Sex)
+heart$HighBloodSugar = as.factor(heart$HighBloodSugar)
+heart$ECG = as.factor(heart$ECG)
+heart$ExerAngina = as.factor(heart$ExerAngina)
+heart$Slope = as.factor(heart$Slope)
+heart$Fluoroscopy = as.factor(heart$Fluoroscopy)
+heart$Thal = as.factor(heart$Thal)
+heart$hasHD = as.factor(heart$hasHD)
+heart$hasCP = as.factor(heart$hasCP)
+
+  #build dataframe with just factor versions of the variables. 
+heart.disc = heart[,-c(1,3,4)]
+
+  #convert to transaction type dataset
+heart.trans = as(heart.disc, "transactions")
+```
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 18</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Mine the data for association rules in which “hasHD=1” is the consequent.  Use a minimum support of .03 and a minimum confidence of 0.5.  How many rules are there?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #build assoc rules.
+rules = apriori(heart.trans, parameter = list(support = 0.03, confidence = 0.50))
+  #pull a subset of rules that just has "hasHD=1" as the consequence.
+hasHD.rules = subset(rules, subset = rhs %in% c("hasHD=1"))
+  #check number of rules with consequence of "hasHD=1". 5542 rules.
+summary(hasHD.rules)
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 19</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Find the subset of rules in which being female is an antecedent.  (Note that in this data set, **Sex** equal to 0 corresponds to female.)  How many such rules are there?
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #given all the hasHD=1 rules, now check for female in the antecedent.
+hasHD.rules.female = subset(hasHD.rules, subset = lhs %in% c("Sex=0"))
+  #check number of rules with antecedent of "Sex=0". 37 rules.
+summary(hasHD.rules.female)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 20</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+Which **two** of the following risk factors, along with being female, are associated with the greatest elevation in probability of heart disease?
+
+
+```{r}
+  #inspect the top ten rules, ordered by lift values. 
+arules::inspect(head(hasHD.rules.female, n=10, by = "lift"))
+```
+
+
+<span style="color:green">**Multiple SELECT Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+Blood pressure greater than 140,  
+Reversible defects on a thallium heart scan (**Thal** equal to 7),  <--- CORRECT
+A flat peak exercise ST segment (Slope equal to 2),  
+No chest pain,  <--- CORRECT
+Chest pain
+
+
+#####################################
+### <span style="color:DarkViolet">Question 21</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+There are 2340 rules in which being male is an antecedent.  Why are there fewer rules in which being female is an antecedent?  Give **two** reasons.
+
+<span style="color:green">**Text Answer**: </span>
+
+There simply appears to be less data available on female patients (97 female vs. 206 for male), therefore there is lesser of a chance for certain combinations (meeting threshold or not) in the antecedents to occur.
+
+Another reason that could factor into why there are less rules for female with heart disease (hasHD=1), is we may be missing predictors that are more associated with this outcome in the data set. Maybe something like smoking might play a much stronger role in being associated with heart disease in females than in males (and would increase the number of rules), but we just don't have that information in this data set. 
+
+
+```{r}
+summary(heart.disc$Sex)
+```
+
+

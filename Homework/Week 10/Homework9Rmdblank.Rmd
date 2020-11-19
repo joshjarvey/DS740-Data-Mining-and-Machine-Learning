@@ -1,0 +1,422 @@
+---
+title: "Homework 9 R markdown"
+author: "Josh Jarvey"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    fig_height: 4
+    fig_width: 4.5
+  pdf_document:
+    fig_height: 4
+    fig_width: 4.5
+  word_document:
+    fig_height: 4
+    fig_width: 4.5
+---
+
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+#trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+#### <span style="color:Blue">**Intellectual Property:**</span>  
+These problems are the intellectual property of the instructors and may not be reproduced outside of this course.
+
+#### <span style="color:Crimson">**Due Date:**</span>  
+
+
+***  
+***  
+
+##########################################################################
+## Problem 1: Modeling with an Artificial Neural Network
+##########################################################################
+
+<span style="color:DarkViolet">In this problem, you will use an artificial neural network to model the type of orange juice that customers buy.  
+
+**Important**:  Note that, for this problem, your answers should be consistent with the autograder, regardless of operating system.  If you run into any difficulties while working on a macOS, please contact your instructor with questions.
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 1</span> **<span style="color:Crimson">(4 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">**Data Set**: Load the **OJ** data set, which is in the **ISLR** library.  Set the random seed to 10, using
+set.seed(10, sample.kind = "Rounding").  
+Use $\texttt{nnet()}$ to build an artificial neural network with 1 hidden node, to model Purchase as a function of LoyalCH, SalePriceMM, and PriceDiff.  
+Enter your R code below. </span>
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #load libraries and dataset.
+library(ISLR)
+library(nnet)
+data("OJ")
+
+set.seed(10, sample.kind = "Rounding")
+  #fit the model.
+fit = nnet(Purchase~LoyalCH+SalePriceMM+PriceDiff, data = OJ, size = 1)
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 2</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Make a plot of your neural network and upload it to the *Homework 10: Neural Network Plot* discussion.  You do not need to label the edges with their weights. </span>
+
+<span style="color:green">**Graph Answer**  </span>: 
+  (post to discussion board on D2L)
+```{r,echo=FALSE}
+  #plot the NN.
+library(NeuralNetTools)
+plotnet(fit)
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 3</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">In this example, the predicted response value is the probability of purchasing Minute Maid orange juice (not the probability of purchasing Citrus Hill juice).  In 2-4 sentences, explain why this makes sense based on the signs (+ or -) of the weights on the edges from **LoyalCH** to the hidden node, and from the hidden node to the response.  
+**Note**: It may help to review the data dictionary using **?OJ**. </span>
+
+
+<span style="color:green">**Text Answer**: </span>
+
+If we work our way backward from the output node of purchasing Minute Maid to the hidden node H1, we clearly see a thick gray line between these two nodes. This represents a large negative weight that's applied to values outputted from the H1 node. From here, we work our way backward once more to the input layer, and we notice the largest connection to H1 is LoyalCH, with a thick black line. This represents a large positive weight to the LoyalCH value. 
+
+Putting this altogether, the larger the loyalty for Citrus Hill at the input layer, means at the hidden node output the predicted probability needs to be smaller (applying a large negative weight), which in turn favors makes the response as Citrus Hill over Minute Maid at the output node.
+
+
+***
+
+
+#####################################
+### <span style="color:DarkViolet">Question 4</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">What is the predicted probability that the first person in the data set will purchase Minute Maid? </span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #prob of 1st observation
+fit$fitted.values[1]
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 5</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Compute $\sigma(z)$, the output of the hidden node, for the first person in the data set. </span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #check weights
+summary(fit)
+  #check x's for customer 1
+OJ[1,c("LoyalCH","SalePriceMM","PriceDiff")]
+
+  #Formula = bias + x1*4.22 + x2*-0.52 + x3*2.39 = h1
+inputH1 = -1.63 + 0.5*4.22 + 1.99*-0.52 + 0.24*2.39 
+  #transform through sigmoid
+outputH1 = 1 / (1+exp(-inputH1))
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 6</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">If we use a probability threshold of .5 to classify predicted purchases, what is the classification error rate for this data set? </span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #predict MM for any value over 50%, else CH
+predClass = ifelse(fit$fitted.values > 0.50, "MM", "CH")
+  #create confusion matrix
+table(predClass,OJ$Purchase)
+  #misclass error rate
+(86+96) / (567+86+96+321)
+```
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 7</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Suppose we classify predicted purchases as "MM"" if the probability of purchasing Minute Maid is > .9, as "CH" if the probability of purchasing Minute Maid is < .1, and NA otherwise. What is the classification error rate among purchases for which we make a (non-NA) prediction? </span>
+
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #if prob>0.90 then MM, else if prob<0.10 then CH, else the inbetween is NA.
+predClass = ifelse(fit$fitted.values > 0.90, "MM",ifelse(fit$fitted.values < 0.10, "CH",NA))
+  #confusion matrix
+table(predClass,OJ$Purchase)
+  #misclass rate
+(9+14)/(9+14+351+93)
+```
+
+#####################################
+### <span style="color:DarkViolet">Question 8</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Write the R code you used to answer the previous question. </span>
+
+<span style="color:green">**Text Answer**: </span>
+
+```{r,echo=FALSE}
+  #if prob>0.90 then MM, else if prob<0.10 then CH, else the inbetween is NA.
+predClass = ifelse(fit$fitted.values > 0.90, "MM", ifelse(fit$fitted.values < 0.10, "CH",NA))
+  #confusion matrix
+table(predClass,OJ$Purchase)
+  #misclass rate
+(9+14)/(9+14+351+93)
+```
+
+
+
+#####################################
+### <span style="color:DarkViolet">Question 9</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">If we use a probability threshold of .9 as in the previous two questions, for how many purchases do we fail to make a (non-NA) prediction? </span>
+
+<span style="color:green">**Numeric Answer**  </span> 
+**<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+```{r,echo=FALSE}
+  #first find the predictions that are NA.
+  #then find the indices of these.
+  #finally, count the length of that indice vector.
+length(which(is.na(predClass)))
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 10</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">View the Lek profile of the model. Which of the following accurately describe the relationship among the variables? Select all that apply. </span>
+
+<span style="color:green">**Multiple SELECT Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  
+  
+The association between LoyalCH and Purchase is stronger for customers with SalePriceMM in the 80th percentile than in the 60th percentile. <---- FALSE, because the teal line and blue line in the LoyalCH variable are generally the same regarding the slope (and holding SalepriceMM and PriceDiff constant)
+
+The association between SalePriceMM and Purchase is strongest for customers with LoyalCH in the 40th percentile. <-- TRUE, the green line (40th percentile) has the greatest slope in the salepriceMM variable (holding loyalCH and PriceDiff constant).
+
+LoyalCH and Purchase are negatively associated. <---- TRUE, because as loyalCH increases, purchase (of minute maid) decreases. 
+
+PriceDiff and Purchase are positively associated. <--- FALSE, as price diff increases, then minute maid increases. 
+
+
+***
+```{r}
+  #look at the directions of the line. 
+  #when trying to identify strongest relationships, review the slope of the lines. 
+lekprofile(fit)
+```
+
+
+***
+
+##########################################################################
+## Problem 2: Using an Artificial Neural Network to Model Salaries
+##########################################################################
+
+<span style="color:DarkViolet">In this problem, you will use an artificial neural network to model the salaries of baseball players. 
+**Important**:  Note that, for this problem, your answers may be different if you are working on a macOS; thus, there are no numeric autograded parts.</span>
+
+#####################################
+### <span style="color:DarkViolet">Question 11</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">**Data Set**: Load the **Hitters** data set in the **ISLR** package.
+Remove any rows with missing Salary data.  
+Create new variables as follows, adding to the data frame in the order listed:
+
+1. **League01**, which equals 0 if **League** = "A" and equals 1 if **League** = "N".   
+2. **Division01**, which equals 0 if **Division** = "E" and equals 1 if **Division** = "W".  
+3. **NewLeague01**, which equals 0 if **NewLeague** = "A" and equals 1 if **NewLeague** = "N".  
+
+<span style="color:DarkViolet">*Remove* the old variables (**League**, **NewLeague**, and **Division**) from the data frame.  
+Enter your R code below. </span>
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #load data and remove NA
+library(ISLR); data("Hitters")
+Hitters = na.omit(Hitters)
+  #add new columns
+Hitters$League01 = ifelse(Hitters$League == "A",0,1)
+Hitters$Division01 = ifelse(Hitters$Division == "E",0,1)
+Hitters$NewLeague01 = ifelse(Hitters$NewLeague == "A",0,1)
+  #remove old columns
+Hitters = Hitters[,-c(14,15,20)]
+```
+
+
+#####################################
+### <span style="color:DarkViolet">Question 12</span> **<span style="color:Crimson">(5 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">We will use $\texttt{nnet()}$ to fit an artificial neural network with 10 hidden nodes to model **Salary** as a function of all other variables in the data set.  Set the random seed equal to 10, using
+set.seed(10, sample.kind = "Rounding").  Let 
+    $\texttt{decayRate = seq(.1, 3, by = .1)}$  
+Use 10-fold cross-validation to choose the best decay rate, $\lambda$.  Use 10 hidden nodes and a linear output function.  To ensure convergence, use $\texttt{maxit = 1000}$.  
+Within each fold (or iteration of the cross-validation loop), you should create a new data frame that contains the training data, and then standardize all of the variables in it (including Salary) to have mean 0 and standard deviation 1.
+
+*  Standardizing the response variable is convenient for treating all of the variables in the same way, reducing the influence of outliers, and avoiding huge values for the weights and MSE.
+
+<span style="color:DarkViolet">In each fold, you should also create a new data frame that contains the *validation* data, and then standardize all of the variables in it based on the mean and standard deviation you used to standardize the training data.
+
+* Depending on how you standardize the validation data, you may get an error message when trying to access 
+$\texttt{Hitters.valid\$Salary}$.  If so, refer to this variable by its column number instead; e.g. $\texttt{Hitters.valid[ ,17]}$.
+This analysis may take a few minutes to run in R.
+
+<span style="color:DarkViolet">Hint to help you check your work:  The MSE when using $\lambda $ = .1 should be .6371 (**if** you are working on a PC).
+Enter your R code below. </span>
+
+
+<span style="color:green">**Code Answer**: </span>
+```{r, echo=TRUE}
+  #setting n, k, and decay rate tuning parameter
+n = nrow(Hitters)
+k = 10
+decayRate = seq(.1, 3, by = .1)
+
+  #randomize the data in 10 folds for CV10
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))
+set.seed(10, sample.kind = "Rounding")
+cvgroups = sample(groups,n) 
+
+  #create storage for error, 10x30 matrix.
+squaredError = matrix( , nr = n, nc = length(decayRate))
+
+for(i in 1:k){
+    groupi = (cvgroups == i)
+
+      #scale all predictor variables for train/validation set
+    mySalary.train = scale(Hitters[!groupi,])
+    mySalary.valid = scale(Hitters[groupi,], 
+                           center = attr(mySalary.train, "scaled:center"), 
+                           scale = attr(mySalary.train, "scaled:scale"))
+    
+    for(j in 1:length(decayRate)){
+            #fit the model on the train data, and predict the validation data (calc squared error and store in matrix).
+        fit = nnet(Salary~., data=mySalary.train, linout = T, size = 10, decay = decayRate[j], maxit = 1000, trace = F) 
+        squaredError[groupi, j] = (mySalary.valid[,17] - predict(fit, mySalary.valid))^2
+    }
+}
+  #calculate MSE for each of the 30 decay values. 
+MSE = apply(squaredError,2,mean)
+```
+
+
+***
+
+
+#####################################
+### <span style="color:DarkViolet">Question 13</span> **<span style="color:Crimson">(3 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">What value of $\lambda$ minimizes the MSE? *Discuss* whether any other values of $\lambda$ appear reasonable, based on the observed values of MSE.</span>
+
+```{r}
+  #Best: model 15, MSE=0.4675, Decay rate of 1.5.
+which.min(MSE); min(MSE)
+decayRate[which.min(MSE)]
+plot(1:length(decayRate),MSE, type = "l", xlab = "Model Number")
+```
+<span style="color:green">**Text Answer**: </span>
+
+It appears that the 15th model, which uses a decay rate of 1.5, produces the lowest MSE value of ~0.4678. 
+
+One could argue however, that a range between model 11 to model 17 all produce a similar result with MSE from 0.4757 to 0.4713 respectively. This represents a decay value range between 1.1 and 1.7.
+
+***
+
+#####################################
+### <span style="color:DarkViolet">Question 14</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Set the random seed to 10 again, using
+set.seed(10, sample.kind = "Rounding").  Standardize the entire data set, and use the best value of $\lambda$ from the previous problem to fit a neural network to the entire data set.  Use 10 hidden nodes and a linear output function.  Use a maximum of 300 iterations; does the model converge? </span>
+
+
+```{r}
+  #scale full dataset
+fulldata.std = data.frame(scale(Hitters))
+set.seed(10, sample.kind = "Rounding")
+  #fit nnet on full scaled data.
+bestfit = nnet(Salary~., data = fulldata.std, linout = T, size = 10, decay = 1.5, maxit = 300) 
+```
+
+
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+Yes,  <--- CORRECT
+No
+
+#####################################
+### <span style="color:DarkViolet">Question 15</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">Apply Garson's algorithm to the model from the previous question. Which _two_ (standardized) variables are most important in predicting (standardized) **Salary**? </span>
+
+
+```{r}
+library(NeuralNetTools)
+garson(bestfit)
+```
+
+
+<span style="color:green">**Text Answer**: </span>
+
+It appears that number of years a player has in the league, and the number of at bats the player has are the strongest predictors.
+
+#####################################
+### <span style="color:DarkViolet">Question 16</span> **<span style="color:Crimson">(2 points)</span>**:
+#####################################
+
+<span style="color:DarkViolet">If your goal was to optimize the performance of this model, what would you try next? Why? Explain in 1-2 sentences. </span>
+
+
+<span style="color:green">**Text Answer**: </span>
+
+I think I would try identifying the optimal "size" parameter for the hidden layer of the neural net. I would use 10-fold cross-validation similar to the way we identified the best lambda parameter. If we can reduce the number of nodes in the hidden layer (using this CV10 process as a "gut check" for error), we can reduce the variability of the model. 
+
+
+#####################################
+### <span style="color:DarkViolet">Question 17</span> **<span style="color:Crimson">(1 point)</span>**:
+#####################################
+
+<span style="color:DarkViolet"> What operating system did you use to run the code for this Homework?
+**Note**: All options for this question are correct; you get the point automatically for providing feedback.</span>
+
+
+<span style="color:green">**Multiple choice Answer** </span>
+  **<span style="color:red">(AUTOGRADED on D2L)</span>**:  one of  
+	
+Windows (PC),     <<<-------------CORRECT.
+Virtual Lab (Windows/PC),  
+Mac,  
+Linux or other
+
+
+#CPU = Intel Core i7-8565U @1.80Ghz

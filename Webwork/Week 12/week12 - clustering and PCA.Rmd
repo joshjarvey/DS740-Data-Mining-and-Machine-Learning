@@ -1,0 +1,114 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "11/12/2020"
+output: html_document
+---
+
+
+```{r}
+  #create a toy dataset
+x1 = c(2,1,0,5,6,4)
+x2 = c(4,5,4,2,2,1)
+toydata = data.frame(x1,x2)
+
+#randomly assign cluster 1 or 2 to the 6 observations in the toy dataset
+set.seed(15, sample.kind = "Rounding"); clust = sample(1:2,6, replace=T)
+toydata$cluster = clust
+```
+```{r}
+#####################iter 1 start
+#now compute the centroids of each cluster.
+  #calculate mean for the x1's and x2's of class 1
+mean(toydata$x1[which(toydata$cluster == 1)])
+mean(toydata$x2[which(toydata$cluster == 1)])
+
+  #calculate mean for the x1's and x2's of class 1
+mean(toydata$x1[which(toydata$cluster == 2)])
+mean(toydata$x2[which(toydata$cluster == 2)])
+
+  #create a function that labels which centroid each observation now belongs to using ecludian distance.
+centroid_finder1 <- function(x1,x2){
+  c1 = sqrt(((3.5-x1)^2) + ((3.5-x2)^2))
+  c2 = sqrt(((2.75-x1)^2) + ((2.75-x2)^2))
+  return(which.min(c(c1,c2)))
+}
+
+  #use custom function to determine each point's new cluster - attach this to the toydata frame.
+for(i in 1:nrow(toydata)){
+  toydata$iter2cluster[i] = centroid_finder1(toydata$x1[i],toydata$x2[i])
+}
+#####################iter 1 complete
+
+#####################iter 2 start
+
+#now compute the centroids of each cluster.
+  #calculate mean for the x1's and x2's of class 1
+mean(toydata$x1[which(toydata$iter2cluster == 1)])
+mean(toydata$x2[which(toydata$iter2cluster == 1)])
+
+  #calculate mean for the x1's and x2's of class 1
+mean(toydata$x1[which(toydata$iter2cluster == 2)])
+mean(toydata$x2[which(toydata$iter2cluster == 2)])
+
+  #create a function that labels which centroid each observation now belongs to using ecludian distance.
+centroid_finder2 <- function(x1,x2){
+  c1 = sqrt(((5.5-x1)^2) + ((2-x2)^2))
+  c2 = sqrt(((1.75-x1)^2) + ((3.5-x2)^2))
+  return(which.min(c(c1,c2)))
+}
+
+  #use custom function to determine each point's new cluster - attach this to the toydata frame.
+for(i in 1:nrow(toydata)){
+  toydata$iter3cluster[i] = centroid_finder2(toydata$x1[i],toydata$x2[i])
+}
+
+
+```
+
+```{r}
+  #put together dataset
+toydata2 = data.frame(x1=c(-1,-2,-3,2,3,1),
+                      x2=c(1,2,1,-1,-1,-2),
+                      x3=c(-2,5,4,-1,-3,-3))
+
+  #perform PCA on dataset (data is already pre centered).
+pca1 = prcomp(toydata2,center = F, scale = F)
+
+  #check coefficients for pc1,2,3 for 1st observation.
+pca1$rotation
+  #check cumulative proportions of PC.
+summary(pca1)
+  #pull coordinates for the 1st observation (PC1, PC2)
+pca1$x
+```
+
+
+```{r}
+  #load data and standardize it
+library(MASS)
+x = UScereal[1:7,c(2:10)]
+x.scale = scale(x)
+
+  #calculate euclidean distances for the predictors. 
+x.scale.dist = dist(x.scale,method = "euclidean")
+
+  #create hierarchical clustering with complete linkage, and plot the dendrogram
+hc.complete = hclust(x.scale.dist, method = "complete")
+plot(hc.complete)
+
+  #create non-hierachical clustering with kmeans. Check cluster groupings
+set.seed(12, sample.kind = "Rounding") 
+nclust = 2
+kmeans(x.scale, nclust)$cluster
+
+  #perform PCA on the data, and check varability proportions for each component.
+pca2 = prcomp(x,center = T,scale = T)
+summary(pca2)
+
+```
+
+
+
+
+

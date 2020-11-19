@@ -152,76 +152,215 @@ Because the predictors aren't very linear in relationship, we opt to use the k-n
 
 ```{r}
 library(class)
+set.seed(8, sample.kind = "Rounding") 
+  #set number of neighbors to try
 k.neighbors = 100
-  #create storage for predictions of 100 KNN models
-knn.allpredictedCV = matrix(rep(NA,n*k.neighbors),ncol=k.neighbors)
-  #predict using KNN with CV10.
-for (i in 1:k) {
-  test = (cvgroups == i)
-  train.x = birth[!test,]
-  test.x = birth[test,]
+  #create storage for all predicted values.
+knn.allpredictedCV = array(rep(NA,n*k.neighbors*nbaseModels), dim = c(nrow(birth),k.neighbors,nbaseModels))
+
+for(model.index in 1:nbaseModels){
+  for (i in 1:k) {
+    test = (cvgroups == i)
+    train.x = birth[!test,]
+    test.x = birth[test,]
   
-    #scale numeric test predictors.
-  age.train.std = scale(train.x$age); ptl.train.std = scale(train.x$ptl)
-  ftv.train.std = scale(train.x$ftv); loglwt.train.std = scale(train.x$loglwt)
-  
-    #scale numeric train predictors
-  age.test.std = scale(test.x$age, 
-                         center = attr(age.train.std,"scaled:center"), 
-                         scale = attr(age.train.std,"scaled:scale"))
-  ptl.test.std = scale(test.x$ptl, 
-                         center = attr(ptl.train.std,"scaled:center"), 
-                         scale = attr(ptl.train.std,"scaled:scale"))
-  ftv.test.std = scale(test.x$ftv, 
-                         center = attr(ftv.train.std,"scaled:center"), 
-                         scale = attr(ftv.train.std,"scaled:scale"))
-  loglwt.test.std = scale(test.x$loglwt, 
-                         center = attr(loglwt.train.std,"scaled:center"), 
-                         scale = attr(loglwt.train.std,"scaled:scale"))
-  
-    #rebuild training and testing dataframes for knn.
-  train.x.std = data.frame(age.train.std,
-                           train.x$race,
-                           train.x$smoke,
-                           ptl.train.std,
-                           train.x$ht,
-                           train.x$ui,
-                           ftv.train.std,
-                           loglwt.train.std)
-  
-  test.x.std = data.frame(age.test.std,
-                           test.x$race,
-                           test.x$smoke,
-                           ptl.test.std,
-                           test.x$ht,
-                           test.x$ui,
-                           ftv.test.std,
-                           loglwt.test.std)
-  
-    #perform knn - 100x for each fold.
-  for (m in 1:k.neighbors) {
-    knn.allpredictedCV[test,m] = knn(train.x,test.x,birth$low[!test], k = m)
+        #scale numeric test predictors.
+    age.train.std = scale(train.x$age); ptl.train.std = scale(train.x$ptl)
+    ftv.train.std = scale(train.x$ftv); loglwt.train.std = scale(train.x$loglwt)
+    
+      #scale numeric train predictors
+    age.test.std = scale(test.x$age, 
+                           center = attr(age.train.std,"scaled:center"), 
+                           scale = attr(age.train.std,"scaled:scale"))
+    ptl.test.std = scale(test.x$ptl, 
+                           center = attr(ptl.train.std,"scaled:center"), 
+                           scale = attr(ptl.train.std,"scaled:scale"))
+    ftv.test.std = scale(test.x$ftv, 
+                           center = attr(ftv.train.std,"scaled:center"), 
+                           scale = attr(ftv.train.std,"scaled:scale"))
+    loglwt.test.std = scale(test.x$loglwt, 
+                           center = attr(loglwt.train.std,"scaled:center"), 
+                           scale = attr(loglwt.train.std,"scaled:scale"))
+
+      #depending on model iteration, select appropriate combination of predictors for train/test for knn.
+    if (model.index == 1){
+      train.x.std = data.frame(age.train.std)
+      test.x.std = data.frame(age.test.std)      
+    } else if (model.index == 2){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race) 
+    } else if (model.index == 3){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke) 
+    } else if (model.index == 4){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke,
+                               ptl.train.std)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke,
+                              ptl.test.std) 
+    } else if (model.index == 5){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke,
+                               ptl.train.std,
+                               train.x$ht)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke,
+                              ptl.test.std,
+                              test.x$ht) 
+    } else if (model.index == 6){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke,
+                               ptl.train.std,
+                               train.x$ht,
+                               train.x$ui)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke,
+                              ptl.test.std,
+                              test.x$ht,
+                              test.x$ui) 
+    } else if (model.index == 7){
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke,
+                               ptl.train.std,
+                               train.x$ht,
+                               train.x$ui,
+                               ftv.train.std)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke,
+                              ptl.test.std,
+                              test.x$ht,
+                              test.x$ui,
+                              ftv.test.std) 
+    } else {
+      train.x.std = data.frame(age.train.std,
+                               train.x$race,
+                               train.x$smoke,
+                               ptl.train.std,
+                               train.x$ht,
+                               train.x$ui,
+                               ftv.train.std,
+                               loglwt.train.std)
+      test.x.std = data.frame(age.test.std,
+                              test.x$race,
+                              test.x$smoke,
+                              ptl.test.std,
+                              test.x$ht,
+                              test.x$ui,
+                              ftv.test.std,
+                              loglwt.test.std) 
+    }
+      #perform knn - 100x for each fold, for current model.
+    for (K in 1:k.neighbors) {
+      knn.allpredictedCV[test,K,model.index] = knn(train.x,test.x,birth$low[!test], k = K)
+    }
   }
+  model.index = model.index + 1
 }
-  #create a vector to store classification error rates
-knn.allmisclass = rep(-1,k.neighbors) 
-  #calculate mis-class error rates for each of the 100 models
-for(m in 1:k.neighbors){
-  cmat = table(knn.allpredictedCV[,m],birth$low)
-  if(dim(cmat)[1] == 2){
-    knn.allmisclass[m] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
-  }else{
-    knn.allmisclass[m] = 1-((cmat[1,1] + 0) / sum(cmat))
+
+  #reset model index for misclassification calculation.
+model.index = 1
+  #create a vector to store classification error rates.
+knn.allmisclass = rep(-1,k.neighbors*nbaseModels) 
+  #calculate mis-class error rates for each of the 800 models
+for (model.index in 1:nbaseModels){
+  if (model.index == 1){  #age
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }
+  } else if (model.index == 2){ #age+race
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+100] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+100] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else if (model.index == 3){ #age+race+smoke
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+200] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+200] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else if (model.index == 4){ #age+race+smoke+ptl
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+300] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+300] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else if (model.index == 5){ #age+race+smoke+ptl+ht
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+400] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+400] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else if (model.index == 6){ #age+race+smoke+ptl+ht+ui
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+500] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+500] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else if (model.index == 7){ #age+race+smoke+ptl+ht+ui+ftv
+    for(m in 1:k.neighbors){
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+600] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+600] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
+  } else {
+    for(m in 1:k.neighbors){ #age+race+smoke+ptl+ht+ui+ftv+loglwt
+      cmat = table(knn.allpredictedCV[,m,model.index],birth$low)
+      if(dim(cmat)[1] == 2){
+        knn.allmisclass[m+700] = 1-((cmat[1,1] + cmat[2,2]) / sum(cmat))
+      }else{
+        knn.allmisclass[m+700] = 1-((cmat[1,1] + 0) / sum(cmat))
+      }
+    }    
   }
+  model.index = model.index + 1
 }
   #display min mis-class error rate and the associated model number.
 which.min(knn.allmisclass); knn.allmisclass[which.min(knn.allmisclass)]
-  #visualize CV10 error across all k neighbors.
-plot(seq(1:k.neighbors),knn.allmisclass, type = "l", xlab = "K-Neighbors", ylab = "Misclass Error Rate", main = "Misclassification Error Rates for KNN")
+  #visualize CV10 error across all k neighbors, and identify lowest point with red star.
+plot(seq(1:(k.neighbors*nbaseModels)),knn.allmisclass, type = "l", xlab = "Models", ylab = "Misclass Error Rate", main = "Multiple Predictors and K-Neighbor's Error Rates")
 points(which.min(knn.allmisclass),knn.allmisclass[which.min(knn.allmisclass)], col = "red", pch = 8)
 ```
 
-Overall, we discover that a K=1 with all predictors produces a CV10 misclassification error rate of 15.34%.
+Overall, we discover that a K=1 with 7 predictors (age+race+smoke+ptl+ht+ui+ftv) produces a CV10 misclassification error rate of 14.28%.
 
 ## 2.3 - Random Forest
 
@@ -229,7 +368,7 @@ We choose random forest as our second method since it also can work with non-lin
 
 ```{r}
 library(randomForest)
-set.seed(8, sample.kind = "Rounding")
+set.seed(8, sample.kind = "Rounding") 
   #create storage for 171 predictions for 36 random forest models.
 rf.allpredictedCV = matrix(rep(NA,n*36),ncol=36)
   
@@ -259,20 +398,20 @@ for(m in 1:36){
 }
   #display min mis-class error rate and the associated model number.
 which.min(rf.allmisclass); rf.allmisclass[which.min(rf.allmisclass)]
-
-plot(seq(1:36),rf.allmisclass, type = "l", xlab = "Model Number", ylab = "Misclass Error Rate", main = "Misclassification Error Rates for Random Forest")
+  #visualize CV10 error across all random forest models, and identify lowest point with red star.
+plot(seq(1:36),rf.allmisclass, type = "l", xlab = "Models", ylab = "Misclass Error Rate", main = "Multiple Predictors and Mtry value's Error Rates")
 points(which.min(rf.allmisclass),rf.allmisclass[which.min(rf.allmisclass)], col = "red", pch = 8)
 ```
 
-Overall, we discover that a random forest with 5 predictors (age+lwt+race+smoke+ptl+ht), and an mtry=1, produces the best fit with a CV10 misclassification error rate of 29.10%.
+Overall, we discover that a random forest with 5 predictors (age+race+smoke+ptl+ht), and an mtry=1, produces the best fit with a CV10 misclassification error rate of 29.10%.
 
-Upon comparison of both KNN and Random forest, we find that KNN (k=1) with all predictors is the superior model; misclassification error rate of 15.34% vs. 29.10%
+Upon comparison of both KNN and Random forest, we find that KNN (k=1) with 7 predictors (age+race+smoke+ptl+ht+ui+ftv) is the superior model; misclassification error rate of 14.28% vs. 29.10%.
 
 ## 3.0 - MODEL ASSESSMENT FOR HONEST PREDICTION
 
 As a final step in this analysis, we will preform double 10-fold cross-validation to assess an honest expectation of error rate for this model. We first split the enter dataset into 10 folds. One is held as an "outer" test, and the other 9 folds are sent into an "inner" modeling selection process where each of these models are also being fit and tested using a CV10 process. The best model from the "inner" fitting process is selected and used to predict the fold that was held back from the "outer" split. The predicted classes are stored, and once the "outer" CV10 process is complete, a confusion matrix is created and the overall misclassification rate is calculated.
 
-Results - after the double cross-validation, the honest misclassification rate of the knn model is: *29.10%*
+Results - after the double cross-validation, the honest misclassification rate of the knn model is: *29.62%*
 
 ```{r}
 ################################################################
@@ -290,7 +429,7 @@ groups.out = c(rep(1:k.out,floor(n.out/k.out)))
 if(floor(n.out/k.out) != (n.out/k.out)){
   groups.out = c(groups.out, 1:(n.out%%k.out))
 }
-set.seed(8, sample.kind = "Rounding")
+set.seed(8, sample.kind = "Rounding") 
 cvgroups.out = sample(groups.out,n.out)
 
   #create storage for all CV scores of outer CV, and storage for best model that was used.
@@ -311,10 +450,9 @@ for (j in 1:k.out){
   traindata.out = fulldata.out[!groupj.out,]
   testdata.out = fulldata.out[groupj.out,]
 
-        #scale numeric test.out predictors.
-  std.age.train.out = scale(traindata.out$age); std.ptl.train.out = scale(traindata.out$ptl)
-  std.ftv.train.out = scale(traindata.out$ftv); std.loglwt.train.out = scale(traindata.out$loglwt)
-  
+    #scale numeric test.out predictors.
+  std.age.train.out = scale(traindata.out$age); std.ptl.train.out = scale(traindata.out$ptl);
+  std.ftv.train.out = scale(traindata.out$ftv)
     #scale numeric train.out predictors
   std.age.test.out = scale(testdata.out$age, 
                          center = attr(std.age.train.out,"scaled:center"), 
@@ -325,9 +463,6 @@ for (j in 1:k.out){
   std.ftv.test.out = scale(testdata.out$ftv, 
                          center = attr(std.ftv.train.out,"scaled:center"), 
                          scale = attr(std.ftv.train.out,"scaled:scale"))
-  std.loglwt.test.out = scale(testdata.out$loglwt, 
-                         center = attr(std.loglwt.train.out,"scaled:center"), 
-                         scale = attr(std.loglwt.train.out,"scaled:scale"))
   
     #rebuild training.out and testing.out dataframes for knn.
   std.train.x.out = data.frame(std.age.train.out,
@@ -336,17 +471,14 @@ for (j in 1:k.out){
                            std.ptl.train.out,
                            traindata.out$ht,
                            traindata.out$ui,
-                           std.ftv.train.out,
-                           std.loglwt.train.out)
-  
+                           std.ftv.train.out)
   std.test.x.out = data.frame(std.age.test.out,
                            testdata.out$race,
                            testdata.out$smoke,
                            std.ptl.test.out,
                            testdata.out$ht,
                            testdata.out$ui,
-                           std.ftv.test.out,
-                           std.loglwt.test.out)
+                           std.ftv.test.out)
   ####################################
   ### pipe current training data   ###
   ####################################
@@ -415,8 +547,7 @@ for (j in 1:k.out){
 
       #scale numeric test.in predictors.
     std.age.train.in = scale(train.x.in$age); std.ptl.train.in = scale(train.x.in$ptl)
-    std.ftv.train.in = scale(train.x.in$ftv); std.loglwt.train.in = scale(train.x.in$loglwt)
-    
+    std.ftv.train.in = scale(train.x.in$ftv)
       #scale numeric train.in predictors
     std.age.test.in = scale(test.x.in$age, 
                            center = attr(std.age.train.in,"scaled:center"), 
@@ -424,13 +555,10 @@ for (j in 1:k.out){
     std.ptl.test.in = scale(test.x.in$ptl, 
                            center = attr(std.ptl.train.in,"scaled:center"), 
                            scale = attr(std.ptl.train.in,"scaled:scale"))
-    std.ftv.test.in = scale(test.x.in$ftv, 
+    std.ftv.test.in = scale(test.x.in$ptl, 
                            center = attr(std.ftv.train.in,"scaled:center"), 
                            scale = attr(std.ftv.train.in,"scaled:scale"))
-    std.loglwt.test.in = scale(test.x.in$loglwt, 
-                           center = attr(std.loglwt.train.in,"scaled:center"), 
-                           scale = attr(std.loglwt.train.in,"scaled:scale"))
-    
+
       #rebuild training.in and testing.in dataframes for knn.
     std.train.x.in = data.frame(std.age.train.in,
                              train.x.in$race,
@@ -438,19 +566,15 @@ for (j in 1:k.out){
                              std.ptl.train.in,
                              train.x.in$ht,
                              train.x.in$ui,
-                             std.ftv.train.in,
-                             std.loglwt.train.in)
-    
+                             std.ftv.train.in)
     std.test.x.in = data.frame(std.age.test.in,
                              test.x.in$race,
                              test.x.in$smoke,
                              std.ptl.test.in,
                              test.x.in$ht,
                              test.x.in$ui,
-                             std.ftv.test.in,
-                             std.loglwt.test.in)
+                             std.ftv.test.in)
     
- 
     for (m in 1:k.neighbors) {
       knn.allpredictedCV.in[test.in,m] = knn(std.train.x.in,std.test.x.in,fulldata.in$low[!test.in], k = m)
     }

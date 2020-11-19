@@ -1,0 +1,193 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "11/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+#1
+  #load dataset.
+ames = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Webwork/Week 11/AmesSimple.csv")
+  #create new lot shape variable as binary.
+ames$Lot.Shape.bin = as.factor(ifelse(ames$Lot.Shape == "Reg", "regular", "irregular"))
+```
+
+
+
+```{r}
+#2
+library(arules)
+  #because Bedroom isnt a binary, we need to turn it into one using this discretize() function. 
+  #first is the variable we want to discretize
+  #next is the number of categories we want to create.
+  #ordered = T orders the results...
+  #finally, the method = "interval" means it will create equally "long" ranges for each split that it creates.
+    #for example, there are observations ranging from 0 to 8 bedrooms above grade.
+    #split this into 2 equal ranges: first one is 0-4, second one is 4-8.
+ames$Bedroom.AbvGr.disc = discretize(ames$Bedroom.AbvGr, breaks = 2, ordered = TRUE, method = "interval")
+
+  #check counts of classes
+summary(ames$Bedroom.AbvGr.disc)
+
+  #class either 0-2, or 2-4 baths
+ames$Full.Bath.disc = discretize(ames$Full.Bath, breaks = 2, ordered = TRUE, method = "interval")
+```
+
+
+```{r}
+#3
+  #class living area into 3 distinct groups
+ames$Gr.Liv.Area.disc = discretize(ames$Gr.Liv.Area, breaks = 3, ordered = TRUE, method = "interval")
+  #there are 5 homes with the largest sq. ft.
+summary(ames$Gr.Liv.Area.disc)
+
+  #calculate the "support" of the largest group - waaay to low.
+5 / nrow(ames)
+```
+
+```{r}
+#4
+  #that last discritization wont allow any of those observations to come into the assoc rules.
+  #this is because it is heavily right skewed.
+summary(ames$Gr.Liv.Area)
+
+  #we can use the results from a simple summary() to break this up into 3 categories using the min, 1st Quartile, 3rd quartile, and max.
+ames$Gr.Liv.Area.disc = discretize(ames$Gr.Liv.Area, "fixed", breaks=c(334, 1126, 1743, 5642), ordered=T)
+
+  #much more evenly distributed
+summary(ames$Gr.Liv.Area.disc)
+
+
+
+
+  #histogram of saleprice - to discritize this it would be much better to do fixed intervals.
+hist(ames$SalePrice)
+  #since histogram shows heavy right skew, we will used fixed width based on min/max/quartiles. 
+summary(ames$SalePrice)
+  #we can use the results from a simple summary() to break this up into 3 categories using the min, 1st Quartile, 3rd quartile, and max.
+ames$SalePrice.disc = discretize(ames$SalePrice, "fixed", breaks=c(min(ames$SalePrice),129500,213500,max(ames$SalePrice)), ordered=T)
+  #much more evenly distributed
+  #there are NA's when this is first done using hard coded numbers. Lets try actual min/max. Much better
+summary(ames$SalePrice.disc)
+
+```
+
+```{r}
+#5
+colnames(ames)
+#convert all variables as factors
+attach(ames)
+Lot.Area = as.factor(Lot.Area)
+Lot.Shape.bin = as.factor(Lot.Shape.bin)
+Total.Bsmt.SF = as.factor(Total.Bsmt.SF)
+has.Fireplace = as.factor(has.Fireplace)
+Bldg.Type.simple = as.factor(Bldg.Type.simple)
+Year.Built = as.factor(Year.Built)
+Full.Bath = as.factor(Full.Bath)
+Bedroom.AbvGr = as.factor(Bedroom.AbvGr)
+Garage.Area = as.factor(Garage.Area)
+has.Pool = as.factor(has.Pool)
+ames.df = data.frame(Lot.Area, Lot.Shape.bin, Total.Bsmt.SF, Gr.Liv.Area.disc, has.Fireplace, SalePrice.disc, Bldg.Type.simple, Year.Built, Full.Bath, Bedroom.AbvGr, Garage.Area, has.Pool)
+detach(ames)
+
+  #convert data set to "transactions" type data set to be used for assoc rule mining.
+ames.trans = as(ames.df, "transactions")
+```
+
+
+
+
+```{r}
+#6
+library(arules)
+  #create the list of assoc rules with support 5% and confidence 50%
+rules = apriori(ames.trans, parameter = list(support = 0.05, confidence = 0.5))
+  #check total number of rules
+summary(rules)
+
+  #check top 5 best rules, as determined by lift
+bestRules = head(rules, n=5, by = "lift")
+
+arules::inspect(bestRules)
+```
+
+```{r}
+#7
+  #create a new set of assoc rules that mines specifically for observations with saleprice within specified range.
+rules2 = apriori(ames.trans, parameter = list(support = .05, confidence = 0.5), appearance = list(rhs = c("SalePrice.disc=[2.14e+05,7.55e+05]"),default ="lhs"))
+  #1475 rules
+summary(rules2)
+
+  #take the NON-redundant rules from rule set 2, and put them into rule set 3 
+rules3 = rules2[!is.redundant(rules2)]
+  #705 non-redundant rule sets. 
+summary(rules3)
+
+  #same thing, find non-redundant and remove them
+nonRedundant = which(interestMeasure(rules2, measure = "improvement",
+                     transactions = NULL, reuse = TRUE, 
+                     quality_measure = "confidence") >= 0)
+rules3 = rules2[nonRedundant]
+  #706 non-redundant rule sets.
+summary(rules3)
+
+
+###NOTE: the is.redundant() vs. the more verbose/direct method of removing redundant rules IS different in its results
+###NOTE: the difference is greater than 0 vs. greater than or equal to 0.
+###NOTE: ultimately, choose a method you are most comfortable with, and stay with it. Use verbose for homework...
+```
+
+
+```{r}
+#8
+  #lets check a subset of the non-redundant rules for homes with high sale price
+  #i want the rules with the antecedent of either 3 or 3 bedrooms above grade level 
+rules4 = subset( rules3, subset = lhs %in% c("Bedroom.AbvGr=3", "Bedroom.AbvGr=4") )
+
+  #check out the best 5 rules for this subset
+bestRules = head(rules4, n=5, by = "lift")
+inspect(bestRules)
+
+  #give the rules from the non-redundant set, that have lift and confidence greater than these values. 42 rules.
+highLift = subset(rules3, subset = lift > 3.5 & confidence > .95)
+summary(highLift)
+```
+
+```{r}
+#9
+  #extract just the antecedents.
+mylhs = lhs(rules3)
+  #find the subset of antecedents that are just of size one (only one element in the set)
+singleAnt = which( size(mylhs) == 1 )
+  #inspect the resulting rules where the index is this single antecedents
+inspect(rules3[singleAnt])
+
+
+  #find the subset of rules that contain only "regular" as the lot shape as the antecedent
+  #note: rules3 is already the subset of rules that has a consequence of "high home price"
+RegAnt = subset( rules3, subset = lhs %in% c("Lot.Shape.bin=regular") )
+  #inspect the rule
+inspect(RegAnt)
+```
+
+```{r}
+#10
+  #convert the itemMatrix into a normal matrix for further inspection. 
+mylhs.mat = as(mylhs, Class = "matrix")
+
+  #count the number of TRUE's listed in the itemMatrix for each column (which is its own antecedent). Generate histogram.
+hist(colSums(mylhs.mat))
+
+```
+
