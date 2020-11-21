@@ -41,14 +41,12 @@ summary(churn)
 
 There are no missing values in this data set, so we can move forward onto the next step of the analysis.
 
-## Data Exploration
+## 2.0 - Data Exploration
 
 In this section we visually explore our dataset - specifically, we're looking at the distributions of the quantitative variables, and also if there are any relationships between variables. 
 
 ```{r, fig.width=20, fig.height=10}
-library(ggformula)
-library(ggpubr)
-
+library(ggformula); library(ggpubr)
 
 #gf_boxplot(CreditScore~Exited, data = churn, color = ~Exited)
 #gf_boxplot(Age~Exited, data = churn, color = ~Exited)
@@ -60,7 +58,6 @@ scatter = ggarrange(ncol = 2, nrow = 3,
           gf_point(EstimatedSalary~Age, data = churn, color = ~Exited),
           gf_point(EstimatedSalary~Tenure, data = churn, color = ~Exited))
 
-
 histo = ggarrange(ncol = 2, nrow = 3,
           gf_histogram(~EstimatedSalary, data = churn, color = ~Exited, fill = ~Exited),
           gf_histogram(~Balance, data = churn, color = ~Exited, fill = ~Exited),
@@ -68,45 +65,111 @@ histo = ggarrange(ncol = 2, nrow = 3,
           gf_histogram(~Age, data = churn, color = ~Exited, fill = ~Exited),
           gf_histogram(~Tenure,data = churn, color= ~Exited, fill = ~Exited))
 
-
 ggarrange(ncol = 2, nrow = 1, histo,scatter)
-plot(churn)
 ```
 
 
 ```{r}
-hist(log(churn$Balance+1))
+(cor(churn[,c(1,4,5,6,7,10)]))
 ```
 
+## 3.0 - Fitting the model
 
+In this section we evaluate potential model fits using the processed data. 
 
-## Fitting the model
+## 3.1 - Neural Network
+
+Our first candidate model is the neural network. We choose ANN since there is a lot of data available to us, which is where these methods perform well. Secondly, there is no linearity among our predictors, which is also where ANN's can provide utility. 
+
+A con of the neural network is interpretability. ANN's do not readily provide easy to understand reasoning behind the predictions it makes for each observation. However, we have made the argument that interpretability isn't a huge priority for this study, and therefore accept less interpretation for greater accuracy in model selection. 
+
+Upon completion of the CV10 training, the best model appears to be number 81, which corresponds to the neural network with size of 8 neurons in the hidden layer, and a decay value of 0.1. This provides a maximum accuracy of 86.62% (at the classification threshold of 0.58).
 
 ```{r}
 library(nnet)
+  #setting n, k, and decay rate tuning parameter
+n = nrow(churn)
+k = 10
+decayRate = seq(.1, 1, by = .1)
+size = seq(1,10, by = 1)
 
+  #randomize the data in 10 folds for CV10
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))
+set.seed(10, sample.kind = "Rounding")
+cvgroups = sample(groups,n) 
 
-churn.std = cbind(churn[,c(2,3,8,9,11)],scale(churn[,c(1,4,5,6,7,10)]))
+  #create storage for error, 10x30 matrix.
+predProb = matrix( , nr = n, nc = (length(decayRate)*length(size)))
 
-fit1 = nnet(Exited~., data = churn.std, size = 5, decay = 5, maxit = 1000)
-```
-
-```{r, fig.width=20, fig.height=10}
-library(NeuralNetTools)
-
-plotnet(fit1)
-
-
-
-garson(fit1)
+for(i in 1:k){
+  groupi = (cvgroups == i)
+    #scale numeric predictor variables for train
+  myChurn.train = cbind(churn[!groupi,c(2,3,8,9,11)],
+                        scale(churn[!groupi,c(1,4,5,6,7,10)])
+                        )
+    #calculate mean and sd of train set, stored separately to be used in scaling of validation set.
+  means.train = apply(churn[!groupi,c(1,4,5,6,7,10)],2,mean)
+  sd.train = apply(churn[!groupi,c(1,4,5,6,7,10)],2,sd)
+  
+    #standardize the validation set using the means and sd's of the train set
+  myChurn.valid = cbind(churn[groupi,c(2,3,8,9,11)],
+                  scale(churn[groupi,c(1,4,5,6,7,10)],
+                          center = means.train, 
+                          scale = sd.train)
+                        )
+    #set index for model number tracking
+  index = 1  
+  for(s in 1:length(size)){
+    for(d in 1:length(decayRate)){
+            #fit the model on the train data, and predict the validation data. Store in predprob matrix
+        fit = nnet(Exited~., data=myChurn.train, size = size[s], decay = decayRate[d], maxit = 1000, trace = F) 
+        predProb[groupi, index] = predict(fit, myChurn.valid)
+        index = index + 1
+    }
+  }
+}
 ```
 
 ```{r}
-predclass = ifelse(fit1$fitted.values>0.50,1,0)
+  #set various threshold values to test best accuracy error.
+threshold = seq(0.01,1, by = 0.01)
+  #setup storage matrix to calculate accuracies at various thresholds, for each of the 100 ANN models.
+model.acc = matrix(,nr = (length(decayRate)*length(size)), nc = length(threshold))
+  #loop for threshold values (columns)
+for (t in 1:length(threshold)){
+    #set predicted class based on current threshold value
+  predclass = ifelse(predProb>threshold[t],1,0)
+    #loop for model number (rows)
+  for (m in 1:(length(size)*length(decayRate))){
+      #calculate accuracy for each threshold value and model.
+    confusion = table(predclass[,m],churn$Exited)
+    model.acc[m,t] = sum(diag(confusion))/sum(confusion)
+  }
+}
+  #Best model: 81 (size 8, decay 0.1), with threshold at 0.58. accuracy = 86.62%. set.seed(10)
+which(model.acc == max(model.acc), arr.ind = T); max(model.acc);
 
-confusion = table(predclass,churn.std$Exited);confusion
-
-sum(diag(confusion))/sum(confusion)
+  #For the best model, plot the accuracy as a function of threshold. Identify best accuracy with red point. 
+plot(seq(0.01,1, by = 0.01),
+     model.acc[which(model.acc == max(model.acc), arr.ind = T)[1],],
+     type = "l", 
+     main = "Neural Network Model Accuracy",xlab = "Threshold Values", ylab = "Accuracy")
+points((which(model.acc == max(model.acc), arr.ind = T)[2]/100),max(model.acc),pch = 8,col = "red")
 ```
 
 
+
+
+
+
+```{r, fig.width=20, fig.height=10}
+  #scale the numeric predictors
+churn.std = cbind(churn[,c(2,3,8,9,11)],scale(churn[,c(1,4,5,6,7,10)]))
+  #set the seed and fit the model using the best parameters
+set.seed(13, sample.kind = "Rounding")
+fit = nnet(Exited~., data=churn.std, size = 8, decay = 0.1, maxit = 1000, trace = T) 
+
+  #plot the garson plot to get a sense of variable importance.
+library(NeuralNetTools)
+garson(fit)
+```
