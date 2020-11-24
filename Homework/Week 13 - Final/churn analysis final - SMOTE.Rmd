@@ -41,11 +41,6 @@ summary(churn)
 
 There are no missing values in this data set, so we can move on with our next step of exploration.
 
-```{r}
-
-```
-
-
 ## 2.0 - Data Exploration
 
 In this section we visually explore our dataset - specifically, we're looking at the distributions of the quantitative variables (any outliers?), and also if there are any relationships between variables. 
@@ -114,7 +109,7 @@ Our first candidate model is the neural network. We choose ANN since there is a 
 A con of the neural network is interpretability. ANN's do not readily provide easy to understand reasoning behind the predictions it makes for each observation. However, we have made the argument that interpretability isn't a huge priority for this study, and therefore accept less interpretation for greater accuracy in model selection. 
 
 ```{r}
-library(nnet)
+library(nnet); library(DMwR)
 set.seed(13, sample.kind = "Rounding")
   #setting decay rate and size tuning parameters.
 decayRate = seq(.1, 1, by = .1)
@@ -131,6 +126,7 @@ for(i in 1:k){
   nn.train.means = apply(churn[!groupi,c(1,4,5,6,7,10)],2,mean)
   nn.train.sd = apply(churn[!groupi,c(1,4,5,6,7,10)],2,sd)
   
+  nn.train.SMOTE = SMOTE(Exited~., data = nn.train, perc.over = 200, perc.under = 150, k=5)
     #standardize the validation set using the means and sd's of the train set
   nn.valid = cbind(churn[groupi,c(2,3,8,9,11)],
                   scale(churn[groupi,c(1,4,5,6,7,10)],
@@ -175,8 +171,17 @@ plot(threshold,
      type = "l", 
      main = "Neural Network Model Accuracy",xlab = "Threshold Values", ylab = "Accuracy")
 points((which(nn.model.acc == max(nn.model.acc), arr.ind = T)[2]/100),max(nn.model.acc),pch = 8,col = "red")
-  #we also plot a roc curve, and calculate the AUC = 0.867.
-plot.roc(roc(response=churn$Exited,nn.predProb[,92]), print.auc = T)
+ #we also plot a roc curve, and calculate the AUC = 0.867.
+plot.roc(roc(response=churn$Exited,nn.predProb[,61]), print.auc = T)
+
+nn.model.roc = rep(NA, (length(size)*length(decayRate)))
+for (m in 1:(length(size)*length(decayRate))){
+  nn.model.roc[m] = roc(response=churn$Exited,nn.predProb[,m])$auc
+}
+
+which(nn.model.roc == max(nn.model.roc), arr.ind = T); max(nn.model.roc);
+
+ 
 ```
 
 The best model appears to be number 92, which corresponds to the neural network with size of 9 neurons in the hidden layer, and a decay value of 0.2. This provides a maximum accuracy of 86.71% (at the classification threshold of 0.57), and an AUC of 0.867.
@@ -188,7 +193,7 @@ Although interpretability is not the top priority in this study, we do review an
 churn.std = cbind(churn[,c(2,3,8,9,11)],scale(churn[,c(1,4,5,6,7,10)]))
   #set the seed and fit the model using the best parameters
 set.seed(13, sample.kind = "Rounding")
-best.nn.fit = nnet(Exited~., data=churn.std, size = 9, decay = 0.2, maxit = 1000, trace = F) 
+best.nn.fit = nnet(Exited~., data=churn.std, size = 6, decay = 0.1, maxit = 1000, trace = F) 
 
   #plot the olden plot to get a sense of variable importance.
 library(NeuralNetTools)
@@ -286,4 +291,11 @@ plot(threshold,lr.model.acc,type = "l",
 points(which.max(lr.model.acc)/100,lr.model.acc[which.max(lr.model.acc)],pch = 8,col = "red")
   #we also plot a roc curve for the best model.
 plot.roc(roc(response=churn$Exited,lr.predProb), print.auc = T)
+
+ #we also plot a roc curve, and calculate the AUC = 0.867.
+plot.roc(roc(response=churn$Exited,nn.predProb[,61]), col = "green")
+plot.roc(roc(response=churn$Exited,lr.predProb), col = "red", add = T)
+legend("bottomright", legend=c("Neural Net: AUC = 0.870", "Logistic: AUC = 0.767"),
+col=c("green", "red"), lwd=2)
+
 ```
