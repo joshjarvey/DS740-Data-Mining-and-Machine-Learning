@@ -47,31 +47,28 @@ In this section we visually explore our dataset - specifically, we're looking at
 
 ```{r, fig.width=20, fig.height=15}
 library(ggformula); library(ggpubr)
-
-histo = ggarrange(ncol = 2, nrow = 3,
-          gf_histogram(~EstimatedSalary, data = churn, color = ~Exited, fill = ~Exited),
-          gf_histogram(~Balance, data = churn, color = ~Exited, fill = ~Exited),
-          gf_histogram(~CreditScore, data = churn, color = ~Exited, fill = ~Exited),
-          gf_histogram(~Age, data = churn, color = ~Exited, fill = ~Exited),
-          gf_histogram(~Tenure,data = churn, color= ~Exited, fill = ~Exited),
-          gf_histogram(~NumOfProducts,data = churn, color= ~Exited, fill = ~Exited))
-
-scatter = ggarrange(ncol = 2, nrow = 3,
-          gf_point(EstimatedSalary~Balance, data = churn, color = ~Exited),
-          gf_point(EstimatedSalary~CreditScore, data = churn, color = ~Exited),
-          gf_point(EstimatedSalary~Age, data = churn, color = ~Exited),
-          gf_point(EstimatedSalary~Tenure, data = churn, color = ~Exited),
-          gf_point(EstimatedSalary~NumOfProducts, data = churn, color = ~Exited))
-
-boxplt = ggarrange(ncol = 2, nrow = 3,
-          gf_boxplot(EstimatedSalary~Exited, data = churn, color = ~Exited),
-          gf_boxplot(Balance~Exited, data = churn, color = ~Exited),
-          gf_boxplot(CreditScore~Exited, data = churn, color = ~Exited),
-          gf_boxplot(Age~Exited, data = churn, color = ~Exited),
-          gf_boxplot(Tenure~Exited, data = churn, color = ~Exited),
-          gf_boxplot(NumOfProducts~Exited, data = churn, color = ~Exited))
-
-ggarrange(ncol = 2, nrow = 2, histo,scatter, boxplt);rm(hist,scatter,boxplt)
+  #visualize distributions and relationships.
+ggarrange(ncol = 2, nrow = 2,
+  ggarrange(ncol = 2, nrow = 3,
+    gf_histogram(~EstimatedSalary, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Balance, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~CreditScore, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Age, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Tenure,data = churn, color= ~Exited, fill = ~Exited),
+    gf_histogram(~NumOfProducts,data = churn, color= ~Exited, fill = ~Exited)),
+  ggarrange(ncol = 2, nrow = 3,
+    gf_point(EstimatedSalary~Balance, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~CreditScore, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~Age, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~Tenure, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~NumOfProducts, data = churn, color = ~Exited)),
+  ggarrange(ncol = 2, nrow = 3,
+    gf_boxplot(EstimatedSalary~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Balance~Exited, data = churn, color = ~Exited),
+    gf_boxplot(CreditScore~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Age~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Tenure~Exited, data = churn, color = ~Exited),
+    gf_boxplot(NumOfProducts~Exited, data = churn, color = ~Exited)))
 ```
 
 We identify an interesting skew (to the right) in the age variable, therefore we'll use a log() transformation to attempt to make it more normal.
@@ -80,7 +77,7 @@ We identify an interesting skew (to the right) in the age variable, therefore we
 churn$Age = log(churn$Age)
 ```
 
-Although the scatterplots indicate no relationship among the predictor, we also check correlation values between the predictors and confirm there are no significant correlations.
+Although the scatterplots indicate no discernable relationship among the predictor, we also check correlation values between the predictors and confirm there are no significant correlations.
 
 ```{r}
 (cor(churn[,c(1,4,5,6,7,10)]))
@@ -88,25 +85,24 @@ Although the scatterplots indicate no relationship among the predictor, we also 
 
 ## 3.0 - Fitting the model
 
-In this section we evaluate potential model fits using the processed data. First we set up some basic framework using cross-validation 10.
+In this section we evaluate potential model fits using the processed data. First we set up some basic framework using 10-fold cross-validation.
 
 ```{r}
 n = nrow(churn)
 k = 10
   #set various threshold values to test best accuracy error.
 threshold = seq(0.01,1, by = 0.01)
-  #randomize the data in 10 folds for CV10
+  #randomize the data into 10 folds for CV10
 groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))
 set.seed(13, sample.kind = "Rounding")
 cvgroups = sample(groups,n) 
 ```
 
-
 ## 3.1 - Neural Network
 
-Our first candidate model is the neural network. We choose ANN since there is a lot of data available to us, which is where these methods perform well. Secondly, there is no linearity among our predictors, which is also where ANN's can provide utility. 
+Our first candidate model is the neural network. We choose ANN since there is a lot of data available to us, which is where these methods perform well. Secondly, there is doesnt appear to be linearity among our predictors, which is also where ANN's can provide utility. 
 
-A con of the neural network is interpretability. ANN's do not readily provide easy to understand reasoning behind the predictions it makes for each observation. However, we have made the argument that interpretability isn't a huge priority for this study, and therefore accept less interpretation for greater accuracy in model selection. 
+A con of the neural network is interpretability. ANN's do not readily provide the influence each variable has on the overall response (i.e. log odds with logistic regression). However, we have made the argument that interpretability isn't a huge priority for this study, and therefore accept less interpretation for greater accuracy in model selection. 
 
 ```{r}
 library(nnet); library(DMwR)
@@ -114,9 +110,9 @@ set.seed(13, sample.kind = "Rounding")
   #setting decay rate and size tuning parameters.
 decayRate = seq(.1, 1, by = .1)
 size = seq(1,10, by = 1)
-  #create storage for error, 10x30 matrix.
+  #create storage for predicted prob, 10,000x100 matrix.
 nn.predProb = matrix( , nr = n, nc = (length(decayRate)*length(size)))
-
+  #perform CV10 with SMOTE for balancing in test set.
 for(i in 1:k){
   groupi = (cvgroups == i)
     #scale numeric predictor variables for train
@@ -125,7 +121,7 @@ for(i in 1:k){
     #calculate mean and sd of train set, stored separately to be used in scaling of validation set.
   nn.train.means = apply(churn[!groupi,c(1,4,5,6,7,10)],2,mean)
   nn.train.sd = apply(churn[!groupi,c(1,4,5,6,7,10)],2,sd)
-  
+    #oversampling to balance response class.
   nn.train.SMOTE = SMOTE(Exited~., data = nn.train, perc.over = 200, perc.under = 150, k=5)
     #standardize the validation set using the means and sd's of the train set
   nn.valid = cbind(churn[groupi,c(2,3,8,9,11)],
@@ -145,10 +141,10 @@ for(i in 1:k){
 }
 ```
 
-Now that we've completed the training of the neural net, we'll move on to assessing the 100 model's performance with a series of various class prediction thresholds. 
+Now that we've completed the training of the neural net, we'll move on to assessing the 100 models performance with a series of various class prediction thresholds. 
 
 ```{r}
-library(pROC)
+
   #setup storage matrix to calculate accuracies at various thresholds, for each of the 100 ANN models.
 nn.model.acc = matrix(,nr = (length(decayRate)*length(size)), nc = length(threshold))
   #loop for threshold values (columns)
@@ -164,24 +160,21 @@ for (t in 1:length(threshold)){
 }
   #Best model: 92 (size 9, decay 0.2), with threshold at 0.57. accuracy = 86.71%. set.seed(13)
 which(nn.model.acc == max(nn.model.acc), arr.ind = T); max(nn.model.acc);
-
   #For the best model, plot the accuracy as a function of threshold. Identify best accuracy with red point. 
 plot(threshold,
      nn.model.acc[which(nn.model.acc == max(nn.model.acc), arr.ind = T)[1],],
      type = "l", 
      main = "Neural Network Model Accuracy",xlab = "Threshold Values", ylab = "Accuracy")
 points((which(nn.model.acc == max(nn.model.acc), arr.ind = T)[2]/100),max(nn.model.acc),pch = 8,col = "red")
- #we also plot a roc curve, and calculate the AUC = 0.867.
-plot.roc(roc(response=churn$Exited,nn.predProb[,61]), print.auc = T)
 
+  #We also calculate the AUC for each model, and store it in a vector.
+library(pROC)
 nn.model.roc = rep(NA, (length(size)*length(decayRate)))
 for (m in 1:(length(size)*length(decayRate))){
   nn.model.roc[m] = roc(response=churn$Exited,nn.predProb[,m])$auc
 }
-
+  #find the model number with the max AUC.
 which(nn.model.roc == max(nn.model.roc), arr.ind = T); max(nn.model.roc);
-
- 
 ```
 
 The best model appears to be number 92, which corresponds to the neural network with size of 9 neurons in the hidden layer, and a decay value of 0.2. This provides a maximum accuracy of 86.71% (at the classification threshold of 0.57), and an AUC of 0.867.
@@ -264,13 +257,17 @@ summary(best.lr.fit$BestModel)
 We find the best model uses all predictor variables except the ones indicating if the customer has a credit card, and also their estimated salary. Next, we use CV10 with the best model and produce a number of predictions for each observation. 
 
 ```{r}
+library(DMwR)
   #create storage for predictions.
 lr.predProb = rep(-1, n)
   #using CV10, make predicted probabilities for each observation using "best" logistic model.
 for(i in 1:k){
   groupi = (cvgroups == i)
-  lr.fit = glm(Exited~.-HasCrCard-EstimatedSalary, data = churn[groupi,], family = "binomial")
-  lr.predProb[!groupi] = predict(lr.fit, churn[!groupi,], type = "response")
+    #oversample on the training data to balance the response classes.
+  lr.train.SMOTE = SMOTE(Exited~., data = churn[!groupi,], perc.over = 200, perc.under = 150, k=5)
+    #fit the best model using the smoted training data. 
+  lr.fit = glm(Exited~.-HasCrCard-EstimatedSalary, data = lr.train.SMOTE, family = "binomial")
+  lr.predProb[groupi] = predict(lr.fit, churn[groupi,], type = "response")
 }
 ```
 
@@ -286,16 +283,19 @@ for (t in 1:length(threshold)){
   lr.model.acc[t] = sum(diag(lr.confusion))/sum(lr.confusion)
 }
   #Plot the model's accuracy as a function of the threshold. Best accuracy of 80.95% at threshold 0.59. 
-plot(threshold,lr.model.acc,type = "l",
-     main = "Logistic Regression Model Accuracy",xlab = "Threshold Values", ylab = "Accuracy")
+plot(threshold,lr.model.acc,type = "l",main = "Logistic Regression Model Accuracy",xlab = "Threshold Values", ylab = "Accuracy")
 points(which.max(lr.model.acc)/100,lr.model.acc[which.max(lr.model.acc)],pch = 8,col = "red")
   #we also plot a roc curve for the best model.
 plot.roc(roc(response=churn$Exited,lr.predProb), print.auc = T)
+```
 
- #we also plot a roc curve, and calculate the AUC = 0.867.
+Finally, we compare both the neural network and the logistic regression ROC curves on the same plot. It's clear to see that the neural network is the superior model. 
+
+```{r}
+  #compare best ROC curves from both the logistic regression and the neural network.
 plot.roc(roc(response=churn$Exited,nn.predProb[,61]), col = "green")
 plot.roc(roc(response=churn$Exited,lr.predProb), col = "red", add = T)
-legend("bottomright", legend=c("Neural Net: AUC = 0.870", "Logistic: AUC = 0.767"),
+legend("bottomright", legend=c("Neural Net: AUC = 0.870", "Logistic: AUC = 0.769"),
 col=c("green", "red"), lwd=2)
-
 ```
+
