@@ -1,0 +1,403 @@
+---
+title: "Untitled"
+author: "Josh Jarvey"
+date: "11/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1.0 - Introduction & Data Prep
+
+In this project, we are interested in modeling, and predicting, customer churn for a banking organization. This dataset was discovered on the Kaggle website located at: https://www.kaggle.com/shrutimechlearn/churn-modelling/. It has a total of 14 columns and 10,000 rows of customer data. 
+ 
+For this first part we begin with reading in the dataset, and preparing the relevant variables for the analysis.
+
+```{r}
+churn = read.csv("C:/Users/joshj/Documents/DS740-Data Mining and Machine Learning/Homework/Week 13 - Final/Churn.csv")
+```
+
+Now that the data is read in, we remove variables that serve no predictive purpose (index, customer id, name) for this analysis.
+
+```{r}
+churn = churn[,-c(1,2,3)]
+```
+
+We also need to change the data types of some of the variables to factors.
+
+```{r}
+churn$HasCrCard = as.factor(churn$HasCrCard)
+churn$IsActiveMember = as.factor(churn$IsActiveMember)
+churn$Exited = as.factor(churn$Exited)
+```
+
+Finally, we can check the summary stats of each data type. We're specifically looking for any missing values.
+
+```{r}
+summary(churn)
+```
+
+There are no missing values in this data set, so we can move on with our next step of variable exploration/feature engineering.
+
+## 2.0 - Data Exploration
+
+In this section we visually explore our dataset - specifically, we're looking at the distributions of the quantitative variables (any outliers?), and also if there are any relationships between variables. 
+
+```{r, fig.width=20, fig.height=15}
+library(ggformula); library(ggpubr)
+ggarrange(ncol = 2, nrow = 2,
+      #histograms
+  ggarrange(ncol = 2, nrow = 3,
+    gf_histogram(~EstimatedSalary, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Balance, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~CreditScore, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Age, data = churn, color = ~Exited, fill = ~Exited),
+    gf_histogram(~Tenure,data = churn, color= ~Exited, fill = ~Exited),
+    gf_histogram(~NumOfProducts,data = churn, color= ~Exited, fill = ~Exited)),
+      #scatterplots
+  ggarrange(ncol = 2, nrow = 3,
+    gf_point(EstimatedSalary~Balance, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~CreditScore, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~Age, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~Tenure, data = churn, color = ~Exited),
+    gf_point(EstimatedSalary~NumOfProducts, data = churn, color = ~Exited)),
+      #boxplots
+  ggarrange(ncol = 2, nrow = 3,
+    gf_boxplot(EstimatedSalary~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Balance~Exited, data = churn, color = ~Exited),
+    gf_boxplot(CreditScore~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Age~Exited, data = churn, color = ~Exited),
+    gf_boxplot(Tenure~Exited, data = churn, color = ~Exited),
+    gf_boxplot(NumOfProducts~Exited, data = churn, color = ~Exited)))
+```
+
+We identify an interesting skew (to the right) in the age variable, therefore we'll use a log() transformation to attempt to make it more normal.
+
+```{r}
+churn$Age = log(churn$Age)
+```
+
+Although the scatterplots indicate no discernible relationship among the predictor, we also check correlation values between the predictors and confirm there are no significant correlations.
+
+```{r}
+cor(churn[,c(1,4,5,6,7,10)])
+```
+
+## 3.0 - Fitting the model
+
+In this section we evaluate potential model fits using the processed data. First we set up some basic framework using 10-fold cross-validation.
+
+```{r}
+  #set sample size and CV folds.
+n = nrow(churn)
+k = 10
+  #randomize the data into 10 folds for CV10
+groups = c(rep(1:k,floor(n/k)),1:(n-floor(n/k)*k))
+set.seed(13, sample.kind = "Rounding")
+cvgroups = sample(groups,n) 
+```
+
+## 3.1 - Neural Network
+
+Our first candidate model is the neural network. We choose ANN since there is a lot of data available to us, which is where these methods perform well. Secondly, there doesn't appear to be linearity among our predictors, which is also where ANN's can provide utility. 
+
+Although we have made the argument that interpretability isn't a huge priority for this study (we need a method that filters down the list of potential "flight risks" into something that's actionable/manageable for a customer service team), there are some tools available that can display predictor importance and direction of influence which can be useful to study as an area of importance for future initiatives by the organization. More on this after we find the best ANN model. 
+
+```{r}
+library(nnet)
+set.seed(13, sample.kind = "Rounding")
+  #setting decay rate and size tuning parameters.
+decayRate = seq(.1, 1, by = .1)
+size = seq(1,10, by = 1)
+  #create storage for predicted prob, 10,000x100 matrix.
+nn.pred = matrix( , nr = n, nc = (length(decayRate)*length(size)))
+  #perform CV10 with SMOTE for balancing in test set.
+for(i in 1:k){
+  groupi = (cvgroups == i)
+    #scale numeric predictor variables for train
+  nn.train = cbind(churn[!groupi,c(2,3,8,9,11)],
+                        scale(churn[!groupi,c(1,4,5,6,7,10)]))
+    #calculate mean and sd of train set, stored separately to be used in scaling of validation set.
+  nn.train.means = apply(churn[!groupi,c(1,4,5,6,7,10)],2,mean)
+  nn.train.sd = apply(churn[!groupi,c(1,4,5,6,7,10)],2,sd)
+
+    #standardize the validation set using the means and sd's of the train set
+  nn.valid = cbind(churn[groupi,c(2,3,8,9,11)],
+                  scale(churn[groupi,c(1,4,5,6,7,10)],
+                          center = nn.train.means, 
+                          scale = nn.train.sd))
+    #set index for model number tracking
+  nn.index = 1  
+  for(s in 1:length(size)){
+    for(d in 1:length(decayRate)){
+            #fit the model on the train data, and predict the validation data. Store in predprob matrix
+        nn.fit = nnet(Exited~., data=nn.train, size = size[s], decay = decayRate[d], maxit = 1000, trace = F) 
+        nn.pred[groupi, nn.index] = predict(nn.fit, nn.valid)
+        nn.index = nn.index + 1
+    }
+  }
+}
+```
+
+Now that we've completed the training of the neural net, we'll move on to assessing the various model's performance with a calculation of the AUC from the respective ROC curves. 
+
+```{r}
+library(pROC)
+  #create storage for AUC values.
+nn.AUC = rep(NA, (length(size)*length(decayRate)))
+  #calculate AUC for each of the 100 models.
+for (m in 1:(length(size)*length(decayRate))){
+  nn.AUC[m] = roc(response=churn$Exited,nn.pred[,m])$auc
+}
+  #find the model number with the max AUC, and plot its ROC curve.
+best.nn = which.max(nn.AUC)
+plot.roc(roc(response=churn$Exited, nn.pred[,best.nn]), print.auc = T)
+```
+
+The best model appears to be number 71, which corresponds to the neural network with size of 7 neurons in the hidden layer, and a decay value of 0.1. This provides a maximum AUC of 0.870.
+
+To wrap up this section, we review an Olden plot which displays relative importance of each of the predictor variables on the response variable. Olden plot's keep the direction of influence (negative or positive) each variable has on the response. Here we see that: is and active member, males, and number of products are the top 3 variables that indicate clients who are more likely to not churn, whereas the variables: higher age, account balance, and being from Germany, are the top 3 variables that indicate clients who are more likely to churn. 
+
+```{r, fig.width=20, fig.height=10}
+library(NeuralNetTools)
+  #scale the numeric predictors
+churn.std = cbind(churn[,c(2,3,8,9,11)],scale(churn[,c(1,4,5,6,7,10)]))
+  #set the seed and fit the model using the best parameters
+set.seed(13, sample.kind = "Rounding")
+nn.full.fit = nnet(Exited~., data=churn.std,
+                   size = floor((best.nn/length(size))), 
+                   decay = ((best.nn%%length(size)) + 1),
+                   maxit = 1000, trace = F) 
+
+  #plot the olden plot to get a sense of variable importance/direction.
+olden(nn.full.fit)
+```
+
+## 3.2 - Logistic Regression
+
+Our second model of choice is the logistic regression model. First we must check the assumptions of this modeling type:
+
+```{r}
+#this code was selected and modified from the online article:
+#http://www.sthda.com/english/articles/36-classification-methods-essentials/148-logistic-regression-assumptions-and-diagnostics-in-r/ 
+library(tidyverse)
+library(broom)
+
+#1: checking that continuous variables are linear to the logit of the response.
+  #full model fit to generate logit values
+fullfit = glm(Exited~., data = churn, family = "binomial")
+probabilities = predict(fullfit, type = "response")
+predicted.classes = ifelse(probabilities>0.5,1,0)
+  #only check continuous variables
+mydata = churn[,c(1,4,5,6,7,10)]
+  #build a stacked dataframe with the logit calculation as a column.
+mydata = mydata %>%
+  mutate(logit = log(probabilities/(1-probabilities))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+  #build the scatterplot and display a loess line to check for linearity.
+ggplot(mydata, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw() + 
+  facet_wrap(~predictors, scales = "free_y")
+
+#2: Check for influential outliers
+  #check points on a plot of cooks distance
+plot(fullfit, which = 4, id.n = 3)
+  #plot residuals
+model.data <- augment(fullfit) %>% 
+  mutate(index = 1:n()) 
+ggplot(model.data, aes(index, .std.resid)) + 
+  geom_point(aes(color = Exited), alpha = .5) +
+  theme_bw()
+  #check if any residuals are greater than 3 (none, so this checks)
+model.data %>% 
+  filter(abs(.std.resid) > 3)
+
+#3: Check for collinearity. None are above a score of 10.
+library(car)
+vif(fullfit)
+
+#4: response is binary. OK.
+```
+
+All the assumptions for the logistic regression check out, so we can proceed with identifying the best model. We use an exhaustive search across all predictors and grade each model by its AIC score - lowest score indicates the best model. This is accomplished using the bestglm() package.
+
+```{r}
+library(bestglm)
+  #copy dataframe and name response variable as "y" for bestglm()
+lr.churn = churn
+lr.churn$y = lr.churn$Exited
+lr.churn = lr.churn[,-c(11)]
+  #set up storage for predictions from CV10.
+lr.pred = rep(NA,n)
+  #also setup storage to keep best model from each CV10 fold. We can inspect most common predictors as a way to gain some interpretability.
+lr.model.selection = rep(NA,k)
+  #perform CV10 using bestglm().
+for(i in 1:k){
+  groupi = (cvgroups == i)
+  lr.fit = bestglm(Xy = lr.churn[!groupi,], family = binomial, IC = "AIC", method = "exhaustive")
+  lr.model.selection[i] = lr.fit$BestModel
+  lr.pred[groupi] = predict(lr.fit$BestModel, churn[groupi,], type = "response")
+}
+  #calculate AUC and plot the ROC curve.
+lr.AUC = roc(response=churn$Exited, lr.pred)$auc
+plot.roc(roc(response=churn$Exited, lr.pred), print.auc = T)
+```
+
+Because we stored the "best" model from each fold in the logistic regression fitting process, let's inspect the predictors from each of the models used. 
+
+As we would expect, there are some similarities between the neural network's olden plot of importance compared to the logistic regression model. Specifically, we see strong evidence that clients who are active, male, and multiple products (for each product there is a compounding effect), then the member is less likely to churn. The bestglm() picks up on similar predictors as the neural net with the increased age of the customer, and those located in Germany, however it doesnt seem to agree with balance being in the top 3 for likely to churn. There is some disagreement as to whats more importance between balance and customers located in Spain (sometimes balance has a larger coefficient, and sometimes Spain has the larger coefficient). 
+
+```{r}
+lr.model.selection
+```
+
+Finally, we compare both the neural network and the logistic regression ROC curves on the same plot. It's clear to see that the neural network is the superior model, and is the candidate model we'll use moving forward in the process.
+
+```{r}
+  #compare best ROC curves from both the logistic regression and the neural network.
+plot.roc(roc(response=churn$Exited,nn.pred[,61]), col = "green")
+plot.roc(roc(response=churn$Exited,lr.pred), col = "red", add = T)
+legend("bottomright", legend=c("Neural Net: AUC = 0.870", "Logistic: AUC = 0.771"),
+col=c("green", "red"), lwd=2)
+```
+
+## 4.0 - Honest Model Assessment
+
+Although we have clear evidence that the neural network is the superior model in this study, we don't have an accurate prediction of its true AUC on the ROC curve. In fact, the AUC may be slightly inflated since in fitting it trained and tested on the entire data set. 
+
+In this section we perform the honest model assessment process. We use an 80/20% split of the dataset where the 80% of the observations will be marked for model fitting and selection, and the remaining 20% of the dataset will be used as a "holdout" validation set to be used at the end for AUC calculation. This provides the model with honestly new data for which to be evaluated on - thus giving us an honest prediction of its performance.
+
+Overall as an honest assessment of the neural network, we can expect a true AUC score of about 0.848.
+
+```{r}
+library(caret); library(nnet); library(pROC); library(bestglm)
+  #using the caret package to create train/valid splits.
+set.seed(13, sample.kind = "Rounding")
+trainsamples = createDataPartition(churn$Exited, p = 0.8, list = F, times = 1)
+train.out = churn[trainsamples,]
+valid.out = churn[-trainsamples,]
+
+################################
+## setting up inner CV10 loop ##
+################################
+  #piping the training data into the inner process - 8001 observations.
+fulldata.in = train.out
+
+  #setting inner sample size and CV.
+n.in = nrow(train.out)
+k.in = 10
+
+  #randomize the data into 10 sets for inner CV10.
+groups.in = c(rep(1:k.in,floor(n.in/k.in)),1:(n.in-floor(n.in/k.in)*k.in))
+cvgroups.in = sample(groups.in,n.in) 
+
+  #copy dataframe and name response variable as "y" for bestglm().
+lr.churn.in = fulldata.in
+lr.churn.in$y = lr.churn.in$Exited
+lr.churn.in = lr.churn.in[,-c(11)]
+
+  #setting up containers for predictions.
+lr.pred.in = rep(NA,n.in)
+nn.pred.in = matrix( , nr = n.in, nc = (length(decayRate)*length(size)))
+
+
+##################################
+## Complete inner CV10 process  ##
+##################################
+for(i in 1:k.in){
+  groupi.in = (cvgroups.in == i)
+  
+  ##############################################################
+  ## Complete the bestglm() fit/predict for current iteration ##
+  ##############################################################
+  lr.fit.in = bestglm(Xy = lr.churn.in[!groupi.in,], family = binomial, IC = "AIC", method = "exhaustive")
+  lr.pred.in[groupi.in] = predict(lr.fit.in$BestModel, lr.churn.in[groupi.in,], type = "response")
+  
+  ###############################################################
+  ## Complete the neural net fit/predict for current iteration ##
+  ###############################################################
+    #scale current training data.
+  nn.train.in = cbind(fulldata.in[!groupi.in,c(2,3,8,9,11)],
+                        scale(fulldata.in[!groupi.in,c(1,4,5,6,7,10)]))
+  
+    #calc mean/sd for current training data, to scale test data.
+  nn.train.means.in = apply(fulldata.in[!groupi.in,c(1,4,5,6,7,10)],2,mean)
+  nn.train.sd.in = apply(fulldata.in[!groupi.in,c(1,4,5,6,7,10)],2,sd)
+
+    #scale current testing data
+  nn.test.in = cbind(fulldata.in[groupi.in,c(2,3,8,9,11)],
+                  scale(fulldata.in[groupi.in,c(1,4,5,6,7,10)],
+                          center = nn.train.means.in, 
+                          scale = nn.train.sd.in))
+  
+    #set index for model number tracking.
+  nn.index.in = 1
+  
+  for(s in 1:length(size)){
+    for(d in 1:length(decayRate)){
+            #fit the model on the train data, and predict the test data. Store in pred matrix
+        nn.fit.in = nnet(Exited~., data=nn.train.in, size = size[s], decay = decayRate[d], maxit = 1000, trace = F) 
+        nn.pred.in[groupi.in, nn.index.in] = predict(nn.fit.in, nn.test.in)
+        nn.index.in = nn.index.in + 1
+    }
+  }
+}
+#############################################
+##      calculate AUC's from models        ##
+############################################# 
+  #calculate AUC for bestglm() method.
+lr.AUC = roc(response = fulldata.in$Exited, lr.pred.in)$auc
+  
+  #create storage for neural net's AUC values.
+nn.AUC = rep(NA, (length(size)*length(decayRate)))
+
+  #calculate neural nets AUC values.
+for (m in 1:(length(size)*length(decayRate))){
+  nn.AUC[m] = roc(response=fulldata.in$Exited,nn.pred.in[,m])$auc
+}
+
+#############################################################
+##        Identify and use best model on validation set    ##
+#############################################################
+  #combining AUC's, and selecting index of highest AUC - that is best model.
+bestmodel = which.max(c(nn.AUC,lr.AUC))
+
+  #first - best model is a Neural Net. Else, best model is bestglm().
+if(bestmodel <= length(nn.AUC)){
+      #scale full outer training data.
+  nn.train.out = cbind(train.out[,c(2,3,8,9,11)],
+                        scale(train.out[,c(1,4,5,6,7,10)]))
+  
+    #calc mean/sd for outer training data, to scale test data.
+  nn.train.means.out = apply(train.out[,c(1,4,5,6,7,10)],2,mean)
+  nn.train.sd.out = apply(train.out[,c(1,4,5,6,7,10)],2,sd)
+
+    #scale validation set based on train set values.
+  nn.valid.out = cbind(valid.out[,c(2,3,8,9,11)],
+                  scale(valid.out[,c(1,4,5,6,7,10)],
+                          center = nn.train.means.out, 
+                          scale = nn.train.sd.out))
+    #fit nn model with best model's size and decay rate.
+  best.fit = nnet(Exited~., data=nn.train.out, 
+                     size = floor((bestmodel/length(size))), 
+                     decay = ((bestmodel%%length(size)) + 1), 
+                     maxit = 1000, trace = F)
+    #make predictions on holdout set and plot the roc curve with honest AUC.
+  valid.pred = predict(best.fit,nn.valid.out)
+  plot.roc(roc(response=nn.valid.out$Exited,valid.pred), print.auc = T)
+} else {
+    #prep the train data for bestglm().
+  lr.churn.out = train.out
+  lr.churn.out$y = lr.churn.out$Exited
+  lr.churn.out = lr.churn.out[,-c(11)]
+    #fit the bestglm()
+  best.fit = bestglm(Xy = lr.churn.out, family = binomial, IC = "AIC", method = "exhaustive")
+    #make predictions on holdout set and plot the roc curve with honest AUC. 
+  valid.pred = predict(best.fit$BestModel, valid.out, type = "response")
+  plot.roc(roc(response=valid.out$Exited,valid.pred), print.auc = T)
+}
+```
